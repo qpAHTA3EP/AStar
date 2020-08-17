@@ -11,21 +11,22 @@ namespace AStar
 	public class Graph
 	{
         //public SpinLock Locker { get; internal set; } = new SpinLock(true);
-        public readonly object Lock = new object();
+        public object Locker => this;
 
         public Graph()
 		{
 			LN = new ArrayList();
 			LA = new ArrayList();
-            _tags = new Dictionary<object, object>();
-
+#if disabled_20200723_1054
+            _tags = new Dictionary<object, object>(); 
+#endif
         }
 
-		public IList Nodes
+        public IList Nodes
 		{
 			get
 			{
-				return this.LN;
+				return LN;
 			}
 		}
 
@@ -33,14 +34,17 @@ namespace AStar
 		{
 			get
 			{
-				return this.LA;
+				return LA;
 			}
 		}
 
 		public void Clear()
 		{
-			this.LN.Clear();
-			this.LA.Clear();
+            lock (Locker)
+            {
+                LN.Clear();
+                LA.Clear(); 
+            }
 		}
 
 		public bool AddNode(Node NewNode)
@@ -49,40 +53,49 @@ namespace AStar
 			{
 				return false;
 			}
-			this.LN.Add(NewNode);
+            lock (Locker)
+            {
+                LN.Add(NewNode); 
+            }
 			return true;
 		}
 
 		public Node AddNode(float x, float y, float z)
 		{
-			Node node = new Node((double)x, (double)y, (double)z);
-			if (!this.AddNode(node))
-			{
-				return null;
-			}
-			return node;
+			Node node = new Node(x, y, z);
+            lock (Locker)
+            {
+                if (!AddNode(node))
+                {
+                    return null;
+                }
+                return node; 
+            }
 		}
 
 		public bool AddArc(Arc NewArc)
 		{
-			if (NewArc == null || this.LA.Contains(NewArc))
+			if (NewArc == null || LA.Contains(NewArc))
 			{
 				return false;
 			}
-			if (!this.LN.Contains(NewArc.StartNode) || !this.LN.Contains(NewArc.EndNode))
+			if (!LN.Contains(NewArc.StartNode) || !LN.Contains(NewArc.EndNode))
 			{
 				throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
 			}
-			this.LA.Add(NewArc);
+            lock (Locker)
+            {
+                LA.Add(NewArc); 
+            }
 			return true;
 		}
 
 		public Arc AddArc(Node StartNode, Node EndNode, float Weight)
 		{
             Arc arc = new Arc(StartNode, EndNode) {
-                            Weight = (double)Weight
+                            Weight = Weight
                         };
-            if (!this.AddArc(arc))
+            if (!AddArc(arc))
 			{
 				return null;
 			}
@@ -91,8 +104,8 @@ namespace AStar
 
 		public void Add2Arcs(Node Node1, Node Node2, float Weight)
 		{
-			this.AddArc(Node1, Node2, Weight);
-			this.AddArc(Node2, Node1, Weight);
+			AddArc(Node1, Node2, Weight);
+			AddArc(Node2, Node1, Weight);
 		}
 
 		public bool RemoveNode(Node NodeToRemove)
@@ -103,17 +116,20 @@ namespace AStar
 			}
 			try
 			{
-				foreach (Arc arc in NodeToRemove.IncomingArcs)
-				{
-					arc.StartNode.OutgoingArcs.Remove(arc);
-					this.LA.Remove(arc);
-				}
-				foreach (Arc arc in NodeToRemove.OutgoingArcs)
-				{
-                    arc.EndNode.IncomingArcs.Remove(arc);
-					this.LA.Remove(arc);
-				}
-				this.LN.Remove(NodeToRemove);
+                lock (Locker)
+                {
+                    foreach (Arc arc in NodeToRemove.IncomingArcs)
+                    {
+                        arc.StartNode.OutgoingArcs.Remove(arc);
+                        LA.Remove(arc);
+                    }
+                    foreach (Arc arc in NodeToRemove.OutgoingArcs)
+                    {
+                        arc.EndNode.IncomingArcs.Remove(arc);
+                        LA.Remove(arc);
+                    }
+                    LN.Remove(NodeToRemove); 
+                }
 			}
 			catch
 			{
@@ -126,36 +142,39 @@ namespace AStar
         {
             int num = LN.Count;
             int lastFreeElement = 0;
-            
-            // Уплотнение списка вершин
-            for(int i = 0; i < LN.Count; i++)
-            {
-                if (LN[i] is Node node
-                    && node.Passable)
-                {
-                    node.RemoveImpassableArcs();
-                    LN[lastFreeElement] = node;
-                    lastFreeElement++;
-                }
-            }
-            // удаление "лишних" элементов в конце списка LN
-            if (lastFreeElement < LN.Count)
-                LN.RemoveRange(lastFreeElement, LN.Count - lastFreeElement);
-            num -= lastFreeElement;
 
-            // Уплотнение списка ребер
-            lastFreeElement = 0;
-            for(int i = 0; i < LA.Count; i++)
+            lock (Locker)
             {
-                if (LA[i] is Arc arc
-                    && arc.Passable)
+                // Уплотнение списка вершин
+                for (int i = 0; i < LN.Count; i++)
                 {
-                    LA[lastFreeElement] = arc;
-                    lastFreeElement++;
+                    if (LN[i] is Node node
+                        && node.Passable)
+                    {
+                        node.RemoveImpassableArcs();
+                        LN[lastFreeElement] = node;
+                        lastFreeElement++;
+                    }
                 }
+                // удаление "лишних" элементов в конце списка LN
+                if (lastFreeElement < LN.Count)
+                    LN.RemoveRange(lastFreeElement, LN.Count - lastFreeElement);
+                num -= lastFreeElement;
+
+                // Уплотнение списка ребер
+                lastFreeElement = 0;
+                for (int i = 0; i < LA.Count; i++)
+                {
+                    if (LA[i] is Arc arc
+                        && arc.Passable)
+                    {
+                        LA[lastFreeElement] = arc;
+                        lastFreeElement++;
+                    }
+                }
+                if (lastFreeElement < LA.Count)
+                    LA.RemoveRange(lastFreeElement, LA.Count - lastFreeElement); 
             }
-            if (lastFreeElement < LA.Count)
-                LA.RemoveRange(lastFreeElement, LA.Count - lastFreeElement);
 
             // Число удаленных вершин
             return num;
@@ -169,9 +188,12 @@ namespace AStar
 			}
 			try
 			{
-				this.LA.Remove(ArcToRemove);
-				ArcToRemove.StartNode.OutgoingArcs.Remove(ArcToRemove);
-				ArcToRemove.EndNode.IncomingArcs.Remove(ArcToRemove);
+                lock (Locker)
+                {
+                    LA.Remove(ArcToRemove);
+                    ArcToRemove.StartNode.OutgoingArcs.Remove(ArcToRemove);
+                    ArcToRemove.EndNode.IncomingArcs.Remove(ArcToRemove); 
+                }
 			}
 			catch
 			{
@@ -184,7 +206,7 @@ namespace AStar
 		{
 			try
 			{
-				Node.BoundingBox(this.Nodes, out MinPoint, out MaxPoint);
+				Node.BoundingBox(Nodes, out MinPoint, out MaxPoint);
 			}
 			catch (ArgumentException innerException)
 			{
@@ -235,6 +257,7 @@ namespace AStar
 			return result;
 		}
 
+#if disabled_20200723_1054
         /// <summary>
         /// Список меток
         /// </summary>
@@ -242,7 +265,8 @@ namespace AStar
         public Dictionary<object, object> Tags { get => _tags; }
 
         [NonSerialized]
-        private readonly Dictionary<object, object> _tags;
+        private readonly Dictionary<object, object> _tags; 
+#endif
 
         private readonly ArrayList LN;
 		private readonly ArrayList LA;

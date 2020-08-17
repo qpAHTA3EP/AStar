@@ -7,128 +7,83 @@ namespace AStar
 	{
 		public Arc(Node Start, Node End)
 		{
-			this.StartNode = Start;
-			this.EndNode = End;
-			this.Weight = 1.0;
-			this.LengthUpdated = false;
-			this.Passable = true;
+			StartNode = Start;
+			EndNode = End;
+			Weight = 1.0;
+			LengthUpdated = false;
+			Passable = true;
 		}
 
 		public Node StartNode
 		{
-			get
+			get => _StartNode;
+            set
 			{
-				return this._StartNode;
-			}
-			set
-			{
-				if (value == null)
-				{
-					throw new ArgumentNullException("StartNode");
-				}
-				if (this.EndNode != null && value.Equals(this.EndNode))
-				{
+				if (value is null)
+					throw new ArgumentNullException(nameof(StartNode));
+				if (EndNode != null && value.Equals(EndNode))
 					throw new ArgumentException("StartNode and EndNode must be different");
-				}
-				if (this._StartNode != null)
-				{
-					this._StartNode.OutgoingArcs.Remove(this);
-				}
-				this._StartNode = value;
-				this._StartNode.OutgoingArcs.Add(this);
+
+                _StartNode?.OutgoingArcs.Remove(this);
+                _StartNode = value;
+				_StartNode.OutgoingArcs.Add(this);
 			}
 		}
 
 		public Node EndNode
 		{
-			get
+			get => _EndNode;
+            set
 			{
-				return this._EndNode;
-			}
-			set
-			{
-				if (value == null)
-				{
-					throw new ArgumentNullException("EndNode");
-				}
-				if (this.StartNode != null && value.Equals(this.StartNode))
-				{
+				if (value is null)
+					throw new ArgumentNullException(nameof(EndNode));
+				if (StartNode != null && value.Equals(StartNode))
 					throw new ArgumentException("StartNode and EndNode must be different");
-				}
-				if (this._EndNode != null)
-				{
-					this._EndNode.IncomingArcs.Remove(this);
-				}
-				this._EndNode = value;
-				this._EndNode.IncomingArcs.Add(this);
+                _EndNode?.IncomingArcs.Remove(this);
+                _EndNode = value;
+				_EndNode.IncomingArcs.Add(this);
 			}
 		}
 
 		public double Weight
 		{
-			get
-			{
-				return this._Weight;
-			}
-			set
-			{
-				this._Weight = value;
-			}
-		}
+			get => _Weight;
+            set => _Weight = value;
+        }
 
 		public bool Passable
 		{
-			get
-			{
-				return this._Passable;
-			}
-			set
-			{
-				this._Passable = value;
-			}
-		}
+			get => _Passable;
+            set => _Passable = value;
+        }
 
 		internal bool LengthUpdated
 		{
-			get
-			{
-				return this._LengthUpdated;
-			}
-			set
-			{
-				this._LengthUpdated = value;
-			}
-		}
+			get => _LengthUpdated;
+            set => _LengthUpdated = value;
+        }
 
 		public double Length
 		{
 			get
 			{
-				if (!this.LengthUpdated)
-				{
-					this._Length = this.CalculateLength();
-					this.LengthUpdated = true;
-				}
-				return this._Length;
+                if (LengthUpdated) return _Length;
+                _Length = CalculateLength();
+                LengthUpdated = true;
+                return _Length;
 			}
 		}
 
 		protected virtual double CalculateLength()
 		{
-			return Point3D.DistanceBetween(this._StartNode.Position, this._EndNode.Position);
+			return Point3D.DistanceBetween(_StartNode.Position, _EndNode.Position);
 		}
 
-		public virtual double Cost
-		{
-			get
-			{
-				return this.Weight * this.Length;
-			}
-		}
+		public virtual double Cost => Weight * Length;
 
-		public override string ToString()
+        public override string ToString()
 		{
-			return this._StartNode.ToString() + "-->" + this._EndNode.ToString();
+			return string.Concat(_StartNode, "-->", _EndNode);
 		}
 
 		public override bool Equals(object O)
@@ -150,7 +105,7 @@ namespace AStar
 
 		public override int GetHashCode()
 		{
-			return (int)this.Length;
+			return (int)Length;
 		}
 
 		private Node _StartNode;

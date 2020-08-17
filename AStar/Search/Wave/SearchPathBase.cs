@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace AStar
+﻿namespace AStar.Search.Wave
 {
     public abstract class SearchPathBase
     {
@@ -22,7 +17,7 @@ namespace AStar
         public abstract Node[] PathByNodes { get; }
 
         /// <summary>
-        /// Флаг, указыающий на завершение поиска
+        /// Флаг, указывающий на завершение поиска
         /// </summary>
         public abstract bool SearchEnded { get; }
 
@@ -30,5 +25,11 @@ namespace AStar
         /// Флаг, указывающие на успешное построение пути
         /// </summary>
         public abstract bool PathFound { get; }
+
+        /// <summary>
+        /// Замена графа в 
+        /// </summary>
+        /// <param name="g"></param>
+        public abstract void Rebase(Graph g);
     }
 }

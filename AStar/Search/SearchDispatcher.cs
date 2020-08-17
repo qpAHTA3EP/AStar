@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using AStar.Search;
+using AStar.Search.AStar;
+using AStar.Search.Wave;
 
 namespace AStar
 {
@@ -10,7 +13,12 @@ namespace AStar
     {
         public AStar(Graph g)
         {
-            graph = g;
+            if (g != graph)
+            {
+                graph = g;
+                searcher?.Rebase(graph);
+                waveSearcher?.Rebase(graph);
+            }
         }
 
         /// <summary>
@@ -24,31 +32,53 @@ namespace AStar
             if (StartNode == null || EndNode == null)
                 return false;
 
-            if (StartNode.Tags.ContainsKey(EndNode.Position)
-                && EndNode.Tags.ContainsKey(EndNode.Position))
+#if false
+            WaveWeight startWeight = StartNode.WaveWeight;
+            WaveWeight endWeight = EndNode.WaveWeight;
+            if (startWeight.Target != null
+                && Equals(startWeight.Target, EndNode)
+                && endWeight.Target != null
+                && Equals(endWeight.Target, EndNode))
             {
-                if (StartNode.Tags[EndNode.Position] is WaveWeight startWeight
-                    && startWeight.Arc != null && startWeight.Weight > 0)
+
+                //if (startWeight.Arc != null && startWeight.Weight > 0 && startWeight.Arc != null)
                 {
                     // вершины имеют волновую оценку для StartNode
                     // используем волновой поиск
-                    searcher = new WaveSearch(graph);
+                    if (waveSearcher is null)
+                        waveSearcher = new WaveSearch(graph);
+                    searcher = waveSearcher;
                     searcher.SearchPath(StartNode, EndNode);
-                    return PathFound;
+                    if (searcher.SearchEnded && searcher.PathFound)
+                        return true;
                 }
+            } 
+            // вершины не имеют волновой оценки для EndNode
+#endif
+
+#if disabled_20200723_1220
+            double distance = Node.EuclidianDistance(StartNode, EndNode);
+            if (distance > 90) 
+#endif
+            { // используем волновой поиск
+                if (waveSearcher is null)
+                    waveSearcher = new WaveSearch(graph);
+                searcher = waveSearcher;
+                try
+                {
+                    searcher.SearchPath(StartNode, EndNode);
+                    if (searcher.SearchEnded && searcher.PathFound)
+                        return true;
+                }
+                catch  { }
             }
 
-            // вершины не имеют волновой оценки для EndNode
-            double distance = Node.EuclidianDistance(StartNode, EndNode);
-            if(distance > 90)
-                // используем волновой поиск
-                searcher = new WaveSearch(graph);
-            else
-                // используем AStar
-                searcher = new AStarSearch(graph);
-
+            // используем AStar
+            if(aStarSearcher is null)
+                aStarSearcher = new AStarSearch(graph);
+            searcher = aStarSearcher;
             searcher.SearchPath(StartNode, EndNode);
-            return PathFound;
+            return searcher.SearchEnded && searcher.PathFound;
         }
 
         /// <summary>
@@ -89,8 +119,9 @@ namespace AStar
             }
         }
 
-        private SearchPathBase searcher = null;
-        private readonly Graph graph = null;
-        //private int targetHash = 0;
+        private static Graph graph = null;
+        private static SearchPathBase searcher = null;
+        private static WaveSearch waveSearcher = null;
+        private static AStarSearch aStarSearcher = null;
     }
 }

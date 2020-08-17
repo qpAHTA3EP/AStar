@@ -14,7 +14,7 @@ namespace AStar
         /// <param name="inGraph"></param>
         /// <param name="outGraph"></param>
         /// <param name="distance">минимальное расстояние между вершинами</param>
-        /// <param name="saveInpassableNode?>Сохранять вершины</param>
+        /// <param name="saveInpassableNode">Сохранять вершины</param>
         public static void GraphSimplyfier(Graph inGraph, out Graph outGraph, double distance, bool saveInpassableNode = false)
         {
             if (inGraph != null && inGraph.Nodes.Count > 0)
