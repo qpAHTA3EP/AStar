@@ -70,7 +70,19 @@ namespace AStar
                     if (searcher.SearchEnded && searcher.PathFound)
                         return true;
                 }
-                catch  { }
+                catch (Exception e)
+                {
+                    AStarLogger.WriteLine(LogType.Error, e.Message);
+                    AStarLogger.WriteLine(LogType.Error, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
+                    AStarLogger.WriteLine(LogType.Error, $@"Start: {StartNode}; End: {EndNode}");
+                    AStarLogger.WriteLine(LogType.Error, e.StackTrace);
+                    Exception innExc = e.InnerException;
+                    while (innExc != null)
+                    {
+                        AStarLogger.WriteLine(LogType.Error, innExc.Message);
+                        innExc = innExc.InnerException;
+                    }
+                }
             }
 
             // используем AStar
@@ -82,7 +94,7 @@ namespace AStar
         }
 
         /// <summary>
-        /// Список узлов, определяющих найденный уть
+        /// Список узлов, определяющих найденный путь
         /// </summary>
         public Node[] PathByNodes
         {
