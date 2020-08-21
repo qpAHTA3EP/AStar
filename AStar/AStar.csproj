@@ -70,7 +70,7 @@
     <Compile Include="Search\Wave\SearchWave.cs" />
     <Compile Include="Graph\Graph.cs" />
     <Compile Include="Search\AStar\Heuristic.cs" />
-    <Compile Include="Search\Wave\SearchPathBase.cs" />
+    <Compile Include="Search\SearchPathBase.cs" />
     <Compile Include="Graph\Node.cs" />
     <Compile Include="Classes\Point3D.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

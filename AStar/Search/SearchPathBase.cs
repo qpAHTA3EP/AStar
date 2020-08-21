@@ -1,4 +1,4 @@
-﻿namespace AStar.Search.Wave
+﻿namespace AStar.Search
 {
     public abstract class SearchPathBase
     {
