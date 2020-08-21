@@ -80,7 +80,7 @@
     <Compile Include="Classes\Track.cs" />
     <Compile Include="Classes\Vector3D.cs" />
     <Compile Include="Search\Wave\WaveStatistic.cs" />
-    <Compile Include="Search\Wave\WaveWaight.cs" />
+    <Compile Include="Search\Wave\WaveWeight.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Astral_patched">

@@ -47,14 +47,14 @@ namespace AStar
                     searcher.SearchPath(StartNode, EndNode);
                     if (searcher.SearchEnded && searcher.PathFound)
                     {
-#if DEBUG_LOG
-                        AStarLogger.WriteLine(LogType.Log, $"WaveSearch SUCCEEDED: End{EndNode} <== Start{StartNode}");
-                        AStarLogger.WriteLine(LogType.Log, $"Wave-TRACK: NodeCount: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
+#if DEBUG || DEBUG_LOG
+                        AStarLogger.WriteLine(LogType.Log, $"WaveSearch SUCCEEDED: End{EndNode} <== Start{StartNode}\n\r"+
+                                                           $"Nodes in path: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
                         AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}"); 
 #endif
                         return true;
                     }
-#if DEBUG_LOG
+#if DEBUG || DEBUG_LOG
                     else
                     {
                         AStarLogger.WriteLine(LogType.Log, $"WaveSearch FAILED: End{EndNode} <== Start{StartNode}");
@@ -84,11 +84,11 @@ namespace AStar
             searcher = aStarSearcher;
             searcher.SearchPath(StartNode, EndNode);
             bool result = searcher.SearchEnded && searcher.PathFound;
-#if DEBUG_LOG
+#if DEBUG || DEBUG_LOG
             if (result)
             {
-                AStarLogger.WriteLine(LogType.Log, $"AStar SUCCEEDED: End{EndNode} <== Start{StartNode}");
-                AStarLogger.WriteLine(LogType.Log, $"AStar-TRACK: NodeCount: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
+                AStarLogger.WriteLine(LogType.Log, $"AStar SUCCEEDED: End{EndNode} <== Start{StartNode}\n\r"+
+                                        $"Nodes in path: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
                 AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
             }
             else
@@ -118,7 +118,7 @@ namespace AStar
         }
 
         /// <summary>
-        /// Флаг, указыающий на завершение поиска
+        /// Флаг, указывающий на завершение поиска
         /// </summary>
         public bool SearchEnded => searcher?.SearchEnded == true;
 

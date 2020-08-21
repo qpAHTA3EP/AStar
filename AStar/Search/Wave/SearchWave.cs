@@ -115,9 +115,9 @@ namespace AStar.Search.Wave
                     // Построить путь не удалось
                     // пробуем пересчитать граф
                 }
+#if DEBUG_LOG
                 catch (Exception e)
                 {
-#if DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e.Message}'", true);
                     AStarLogger.WriteLine(LogType.Error, e.StackTrace, true);
                     Exception innExc = e.InnerException;
@@ -126,6 +126,9 @@ namespace AStar.Search.Wave
                         AStarLogger.WriteLine(LogType.Error, innExc.Message, true);
                         innExc = innExc.InnerException;
                     }
+#else
+                catch 
+                {
 #endif
                     pathFound = false;
                     searchEnded = false;
@@ -202,9 +205,9 @@ namespace AStar.Search.Wave
                         pathFound = false;
                     }
                 }
+#if DEBUG_LOG
                 catch (Exception e)
                 {
-#if DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e.Message}'", true);
                     AStarLogger.WriteLine(LogType.Error, e.StackTrace, true);
                     Exception innExc = e.InnerException;
@@ -213,6 +216,9 @@ namespace AStar.Search.Wave
                         AStarLogger.WriteLine(LogType.Error, innExc.Message, true);
                         innExc = innExc.InnerException;
                     }
+#else
+                catch
+                {
 #endif
                     track?.Clear();
                     foundedPath = null;
