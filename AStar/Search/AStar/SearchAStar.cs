@@ -198,6 +198,20 @@ namespace AStar.Search.AStar
 			}
 		}
 
+        public override double PathLength
+        {
+            get
+            {
+                CheckSearchHasEnded();
+                if (!PathFound && _LeafToGoBackUp != null)
+                {
+                    return _LeafToGoBackUp.EuclideanLength;
+                }
+
+                return 0;
+            }
+        }
+
 		private Node[] GoBackUpNodes(Track T)
 		{
 			int nbArcsVisited = T.NbArcsVisited;

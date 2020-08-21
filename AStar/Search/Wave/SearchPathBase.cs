@@ -17,6 +17,11 @@
         public abstract Node[] PathByNodes { get; }
 
         /// <summary>
+        /// Длина пути 
+        /// </summary>
+        public abstract double PathLength { get; }
+
+        /// <summary>
         /// Флаг, указывающий на завершение поиска
         /// </summary>
         public abstract bool SearchEnded { get; }
