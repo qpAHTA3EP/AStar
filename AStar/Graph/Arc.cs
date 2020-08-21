@@ -88,20 +88,26 @@ namespace AStar
 
 		public override bool Equals(object O)
 		{
-			Arc arc = (Arc)O;
-			if (arc == null)
-			{
-				throw new ArgumentException(string.Concat(new object[]
-				{
-					"Cannot compare type ",
-					base.GetType(),
-					" with type ",
-					O.GetType(),
-					" !"
-				}));
-			}
-			return this._StartNode.Equals(arc._StartNode) && this._EndNode.Equals(arc._EndNode);
-		}
+
+#if false
+            Arc arc = (Arc)O;
+            if (arc == null)
+            {
+                throw new ArgumentException(string.Concat(new object[]
+                {
+                    "Cannot compare type ",
+                    base.GetType(),
+                    " with type ",
+                    O.GetType(),
+                    " !"
+                }));
+            } 
+#else
+            if(O is Arc arc)
+#endif
+                return this._StartNode.Equals(arc._StartNode) && this._EndNode.Equals(arc._EndNode);
+            return false;
+        }
 
 		public override int GetHashCode()
 		{

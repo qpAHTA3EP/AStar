@@ -7,11 +7,44 @@ using System.Linq;
 
 namespace AStar
 {
+    /// <summary>
+    /// Изменение графа
+    /// </summary>
+    public enum NotifyReason
+    {
+        AddingNode,
+        RemovingNode,
+        RemovingNodes,
+        ChangingNode,
+        AddingArc,
+        RemovingArc,
+        RemovingArcs,
+        ChangingArc
+    }
+
 	[Serializable]
 	public class Graph
 	{
-        //public SpinLock Locker { get; internal set; } = new SpinLock(true);
+        [XmlIgnore]
         public object Locker => this;
+#if false
+        [NonSerialized]
+        object _locker = new object(); 
+#endif
+
+#if false
+        public delegate void NotifyNodeChanged(Node node, NotifyReason reason);
+        public event NotifyNodeChanged onNodeChanged; 
+        public delegate void NotifyNodesChanged(ArrayList nodes, NotifyReason reason);
+        public event NotifyNodesChanged BeforeNodesChanged;
+
+        public delegate void NotifyArcChanged(Arc arc, NotifyReason reason);
+        public event NotifyArcChanged onArcChanged; 
+        public delegate void NotifyArcsChanged(ArrayList arcs, NotifyReason reason);
+        public event NotifyArcsChanged BeforeArcsChanged;
+#endif
+        public delegate void NotifyGraphChanged(object obj, NotifyReason reason);
+        public event NotifyGraphChanged BeforeGraphChanged;
 
         public Graph()
 		{
@@ -22,39 +55,29 @@ namespace AStar
 #endif
         }
 
-        public IList Nodes
-		{
-			get
-			{
-				return LN;
-			}
-		}
+        public IList Nodes => LN;
 
-		public IList Arcs
-		{
-			get
-			{
-				return LA;
-			}
-		}
+        public IList Arcs => LA;
 
-		public void Clear()
+        public void Clear()
 		{
             lock (Locker)
             {
+                BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingNodes);
                 LN.Clear();
+                BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingArcs);
                 LA.Clear(); 
             }
 		}
 
 		public bool AddNode(Node NewNode)
 		{
-			if (NewNode == null || this.LN.Contains(NewNode))
-			{
+			if (NewNode is null || LN.Contains(NewNode))
 				return false;
-			}
+
             lock (Locker)
             {
+                BeforeGraphChanged?.Invoke(new ArrayList() { NewNode }, NotifyReason.AddingNode);
                 LN.Add(NewNode); 
             }
 			return true;
@@ -65,42 +88,35 @@ namespace AStar
 			Node node = new Node(x, y, z);
             lock (Locker)
             {
-                if (!AddNode(node))
-                {
-                    return null;
-                }
-                return node; 
+                return AddNode(node) ? node : null;
             }
 		}
 
 		public bool AddArc(Arc NewArc)
 		{
-			if (NewArc == null || LA.Contains(NewArc))
-			{
+			if (NewArc is null || LA.Contains(NewArc))
 				return false;
-			}
-			if (!LN.Contains(NewArc.StartNode) || !LN.Contains(NewArc.EndNode))
-			{
+
+            if (!LN.Contains(NewArc.StartNode) || !LN.Contains(NewArc.EndNode))
 				throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
-			}
+
             lock (Locker)
             {
+                BeforeGraphChanged?.Invoke(new ArrayList() { NewArc }, NotifyReason.AddingArc);
                 LA.Add(NewArc); 
             }
 			return true;
 		}
 
-		public Arc AddArc(Node StartNode, Node EndNode, float Weight)
-		{
-            Arc arc = new Arc(StartNode, EndNode) {
-                            Weight = Weight
-                        };
-            if (!AddArc(arc))
-			{
-				return null;
-			}
-			return arc;
-		}
+        public Arc AddArc(Node StartNode, Node EndNode, float Weight)
+        {
+            Arc arc = new Arc(StartNode, EndNode) {Weight = Weight};
+            lock (Locker)
+            {
+                return AddArc(arc) ? arc : null;
+            }
+        }
+    
 
 		public void Add2Arcs(Node Node1, Node Node2, float Weight)
 		{
@@ -110,24 +126,26 @@ namespace AStar
 
 		public bool RemoveNode(Node NodeToRemove)
 		{
-			if (NodeToRemove == null)
-			{
+			if (NodeToRemove is null)
 				return false;
-			}
-			try
+
+            try
 			{
                 lock (Locker)
                 {
+                    BeforeGraphChanged?.Invoke(new ArrayList() { NodeToRemove.IncomingArcs }, NotifyReason.RemovingArcs);
                     foreach (Arc arc in NodeToRemove.IncomingArcs)
                     {
                         arc.StartNode.OutgoingArcs.Remove(arc);
                         LA.Remove(arc);
                     }
+                    BeforeGraphChanged?.Invoke(new ArrayList() { NodeToRemove.OutgoingArcs }, NotifyReason.RemovingArcs);
                     foreach (Arc arc in NodeToRemove.OutgoingArcs)
                     {
                         arc.EndNode.IncomingArcs.Remove(arc);
                         LA.Remove(arc);
                     }
+                    BeforeGraphChanged?.Invoke(new ArrayList() { NodeToRemove }, NotifyReason.RemovingNode);
                     LN.Remove(NodeToRemove); 
                 }
 			}
@@ -182,14 +200,14 @@ namespace AStar
 
 		public bool RemoveArc(Arc ArcToRemove)
 		{
-			if (ArcToRemove == null)
-			{
+			if (ArcToRemove is null)
 				return false;
-			}
-			try
+
+            try
 			{
                 lock (Locker)
                 {
+                    BeforeGraphChanged?.Invoke(new ArrayList() { ArcToRemove }, NotifyReason.RemovingArc);
                     LA.Remove(ArcToRemove);
                     ArcToRemove.StartNode.OutgoingArcs.Remove(ArcToRemove);
                     ArcToRemove.EndNode.IncomingArcs.Remove(ArcToRemove); 
@@ -219,12 +237,12 @@ namespace AStar
 			Node result = null;
 			double num = -1.0;
 			Point3D p = new Point3D(PtX, PtY, PtZ);
-			foreach (Node node in this.LN)
+			foreach (Node node in LN)
 			{
 				if (!IgnorePassableProperty || node.Passable)
 				{
 					double num2 = Point3D.DistanceBetween(node.Position, p);
-					if (num == -1.0 || num > num2)
+					if (num < 0 || num > num2)
 					{
 						num = num2;
 						result = node;
@@ -240,13 +258,13 @@ namespace AStar
 			Arc result = null;
 			double num = -1.0;
 			Point3D point3D = new Point3D(PtX, PtY, PtZ);
-			foreach (Arc arc in this.LA)
+			foreach (Arc arc in LA)
 			{
 				if (!IgnorePassableProperty || arc.Passable)
 				{
 					Point3D p = Point3D.ProjectOnLine(point3D, arc.StartNode.Position, arc.EndNode.Position);
 					double num2 = Point3D.DistanceBetween(point3D, p);
-					if (num == -1.0 || num > num2)
+					if (num < 0 || num > num2)
 					{
 						num = num2;
 						result = arc;

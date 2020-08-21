@@ -35,7 +35,10 @@ namespace AStar
 		public int NbArcsVisited => _NbArcsVisited;
 		private int _NbArcsVisited;
 
-		public double Cost => _Cost;
+        public double EuclideanLength => _euclideanLenght;
+        private double _euclideanLenght = 0;
+
+        public double Cost => _Cost;
 		private double _Cost;
 
 		public virtual double Evaluation
@@ -55,7 +58,8 @@ namespace AStar
 
             _Cost = 0.0;
 			_NbArcsVisited = 0;
-			Queue = null;
+            _euclideanLenght = 0;
+            Queue = null;
 			EndNode = GraphNode;
 		}
 
@@ -65,9 +69,10 @@ namespace AStar
 				throw new InvalidOperationException("You must specify a target Node for the Track class.");
 
             Queue = PreviousTrack;
-			_Cost = this.Queue.Cost + Transition.Cost;
+			_Cost = this.Queue._Cost + Transition.Cost;
 			_NbArcsVisited = this.Queue._NbArcsVisited + 1;
-			EndNode = Transition.EndNode;
+            _euclideanLenght = Queue._euclideanLenght + Transition.Length;
+            EndNode = Transition.EndNode;
 		}
 
 		public int CompareTo(object obj)

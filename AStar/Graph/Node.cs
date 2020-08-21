@@ -210,6 +210,7 @@ namespace AStar
 
         public override bool Equals(object O)
         {
+#if false
             Node node = (Node)O;
             if (node is null)
             {
@@ -221,8 +222,12 @@ namespace AStar
                     base.GetType(),
                     " !"
                 }));
-            }
-            return this.Position.Equals(node.Position);
+            } 
+#else
+            if(O is Node node)
+#endif
+                return this.Position.Equals(node.Position);
+            return false;
         }
 
         public object Clone()

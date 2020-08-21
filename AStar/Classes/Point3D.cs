@@ -83,22 +83,33 @@ namespace AStar
 
 		public override bool Equals(object Point)
 		{
-			Point3D point3D = (Point3D)Point;
-			if (point3D is null)
-				throw new ArgumentException("Object must be of type " + base.GetType());
-
+#if false
+            Point3D point3D = (Point3D)Point;
+            if (Point is null)
+                throw new ArgumentException("Object must be of type " + base.GetType());
             bool flag = true;
 			for (int i = 0; i < 3; i++)
 				flag &= point3D[i].Equals(this[i]);
 
             return flag;
-		}
+#else
+            if (Point is Point3D point3D)
+                return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < double.Epsilon
+                       && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < double.Epsilon
+                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < double.Epsilon;
+            return false;
+#endif
+        }
 
 		public override int GetHashCode()
 		{
 			double num = 0.0;
-			for (int i = 0; i < 3; i++)
-				num += this[i];
+#if false
+            for (int i = 0; i < 3; i++)
+                num += this[i]; 
+#else
+            num = _Coordinates[0] + _Coordinates[1] + _Coordinates[2];
+#endif
 
             return (int)num;
 		}
