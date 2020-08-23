@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyVersion("1.20.0822.1443")]
+[assembly: AssemblyVersion("1.20.0823.1745")]
 [assembly: AssemblyProduct("AStar")]
 [assembly: AssemblyCopyright("")]
 [assembly: CompilationRelaxations(8)]
@@ -16,5 +16,5 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTrademark("")]
 [assembly: ComVisible(false)]
 [assembly: Guid("8eac4457-7e9a-4b61-9806-814963e6e98a")]
-[assembly: AssemblyFileVersion("1.20.0822.1443")]
+[assembly: AssemblyFileVersion("1.20.0823.1745")]
 [assembly: Debuggable(DebuggableAttribute.DebuggingModes.IgnoreSymbolStoreSequencePoints)]

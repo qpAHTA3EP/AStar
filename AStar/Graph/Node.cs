@@ -180,7 +180,7 @@ namespace AStar
         public Arc ArcGoingTo(Node N)
         {
             if (N is null)
-                throw new ArgumentNullException();
+                throw new ArgumentNullException(nameof(N));
 
             foreach (Arc arc in _OutgoingArcs)
                 if (Equals(arc.EndNode, N))
@@ -191,10 +191,9 @@ namespace AStar
 
         public Arc ArcComingFrom(Node N)
         {
-            if (N == null)
-            {
-                throw new ArgumentNullException();
-            }
+            if (N is null)
+                throw new ArgumentNullException(nameof(N));
+
             foreach (Arc arc in _IncomingArcs)
                 if (Equals(arc.StartNode, N))
                     return arc;
@@ -238,7 +237,7 @@ namespace AStar
         }
         public bool Equals(Node n)
         {
-            return _Position.Equals(n._Position);
+            return n != null && _Position.Equals(n._Position) == true;
         }
 
         public object Clone()

@@ -110,7 +110,7 @@ namespace AStar
 
         public Arc AddArc(Node StartNode, Node EndNode, float Weight)
         {
-            Arc arc = new Arc(StartNode, EndNode) {Weight = Weight};
+            Arc arc = Arc.Get(StartNode, EndNode, Weight);
             lock (Locker)
             {
                 return AddArc(arc) ? arc : null;
