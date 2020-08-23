@@ -31,9 +31,11 @@ namespace AStar
         {
             if (StartNode == null || EndNode == null)
                 return false;
-
+#if DEBUG_LOG
+            StringBuilder sb = new StringBuilder();
+#endif
 #if disabled_20200723_1220
-            double distance = Node.EuclidianDistance(StartNode, EndNode);
+            double distance = Node.EuclideanDistance(StartNode, EndNode);
             if (distance > 90) 
 #endif
             {
@@ -44,13 +46,29 @@ namespace AStar
                 searcher = waveSearcher;
                 try
                 {
+#if DEBUG || DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Log, $"WaveSearch: Start pathfinding End{EndNode} <== Start{StartNode}");
+                    AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
+#if PRINT_GRAPH
+                    sb.AppendLine("Graph nodes:");
+                    foreach (Node n in graph.Nodes)
+                        sb.AppendLine($"\t{n}\t|\t{n.WaveWeight}");
+                    AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
+#endif
+#endif
                     searcher.SearchPath(StartNode, EndNode);
                     if (searcher.SearchEnded && searcher.PathFound)
                     {
 #if DEBUG || DEBUG_LOG
-                        AStarLogger.WriteLine(LogType.Log, $"WaveSearch SUCCEEDED: End{EndNode} <== Start{StartNode}\n\r"+
-                                                           $"Nodes in path: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
-                        AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}"); 
+                        AStarLogger.WriteLine(LogType.Log, $"WaveSearch SUCCEEDED: End{EndNode} <== Start{StartNode}");
+                        AStarLogger.WriteLine(LogType.Log, $"\tNodes in path: in path: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
+#if PRINT_GRAPH
+                        sb.Clear();
+                        sb.AppendLine("Graph nodes:");
+                        foreach (Node n in graph.Nodes)
+                            sb.AppendLine($"\t{n}\t|\t{n.WaveWeight}");
+                        AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
+#endif
 #endif
                         return true;
                     }
@@ -58,8 +76,15 @@ namespace AStar
                     else
                     {
                         AStarLogger.WriteLine(LogType.Log, $"WaveSearch FAILED: End{EndNode} <== Start{StartNode}");
-                        AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
-                    } 
+                        //AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
+#if PRINT_GRAPH
+                        sb.Clear();
+                        sb.AppendLine("Graph nodes:");
+                        foreach (Node n in graph.Nodes)
+                            sb.AppendLine($"\t{n}\t|\t{n.WaveWeight}");
+                        AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
+#endif
+                    }
 #endif
                 }
                 catch (Exception e)
@@ -74,11 +99,23 @@ namespace AStar
                         AStarLogger.WriteLine(LogType.Error, innExc.Message, true);
                         innExc = innExc.InnerException;
                     }
+#if DEBUG_LOG
+
+                    sb.Clear();
+                    sb.AppendLine("Graph nodes:");
+                    foreach (Node n in graph.Nodes)
+                        sb.AppendLine($"\t{n}\t|\t{n.WaveWeight}");
+                    AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
+#endif
                 }
             }
 
             // используем AStar
-            if(aStarSearcher is null)
+#if DEBUG || DEBUG_LOG
+            AStarLogger.WriteLine(LogType.Log, $"AStar: Start pathfinding End{EndNode} <== Start{StartNode}");
+            AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
+#endif
+            if (aStarSearcher is null)
                 aStarSearcher = new AStarSearch(graph);
             else aStarSearcher.Rebase(graph);
             searcher = aStarSearcher;
@@ -87,14 +124,12 @@ namespace AStar
 #if DEBUG || DEBUG_LOG
             if (result)
             {
-                AStarLogger.WriteLine(LogType.Log, $"AStar SUCCEEDED: End{EndNode} <== Start{StartNode}\n\r"+
-                                        $"Nodes in path: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
-                AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
+                AStarLogger.WriteLine(LogType.Log, $"AStar SUCCEEDED: End{EndNode} <== Start{StartNode}");
+                AStarLogger.WriteLine(LogType.Log, $"\tNodes in path: {searcher.PathByNodes.Length}; Length: {searcher.PathLength:N2}");
             }
             else
             {
                 AStarLogger.WriteLine(LogType.Log, $"WaveSearch FAILED: End{EndNode} <== Start{StartNode}");
-                AStarLogger.WriteLine(LogType.Log, $"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
             } 
 #endif
 

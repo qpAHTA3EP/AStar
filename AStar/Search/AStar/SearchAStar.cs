@@ -5,7 +5,7 @@ namespace AStar.Search.AStar
 {
 	public class AStarSearch : SearchPathBase
 	{
-		public static Heuristic EuclidianHeuristic => Node.EuclidianDistance;
+		public static Heuristic EuclideanHeuristic => Node.EuclideanDistance;
 
         public static Heuristic MaxAlongAxisHeuristic => Node.MaxDistanceAlongAxis;
 
@@ -35,7 +35,7 @@ namespace AStar.Search.AStar
 			_Graph = G;
 			_Open = new SortableList();
 			_Closed = new SortableList();
-			ChoosenHeuristic = EuclidianHeuristic;
+			ChoosenHeuristic = EuclideanHeuristic;
 			DijkstraHeuristicBalance = 0.5;
 		}
 

@@ -3,7 +3,7 @@
 namespace AStar
 {
 	[Serializable]
-	public class Arc
+	public class Arc : IEquatable<Arc>
 	{
 		public Arc(Node Start, Node End)
 		{
@@ -25,8 +25,9 @@ namespace AStar
 					throw new ArgumentException("StartNode and EndNode must be different");
 
                 _StartNode?.OutgoingArcs.Remove(this);
+
                 _StartNode = value;
-				_StartNode.OutgoingArcs.Add(this);
+				_StartNode.OutgoingArcs.AddUnique(this);
 			}
 		}
 
@@ -41,7 +42,7 @@ namespace AStar
 					throw new ArgumentException("StartNode and EndNode must be different");
                 _EndNode?.IncomingArcs.Remove(this);
                 _EndNode = value;
-				_EndNode.IncomingArcs.Add(this);
+				_EndNode.IncomingArcs.AddUnique(this);
 			}
 		}
 
@@ -108,8 +109,11 @@ namespace AStar
                 return this._StartNode.Equals(arc._StartNode) && this._EndNode.Equals(arc._EndNode);
             return false;
         }
-
-		public override int GetHashCode()
+        public bool Equals(Arc arc)
+        {
+            return _StartNode.Equals(arc._StartNode) && _EndNode.Equals(arc._EndNode);
+        }
+        public override int GetHashCode()
 		{
 			return (int)Length;
 		}

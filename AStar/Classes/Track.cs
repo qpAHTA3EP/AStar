@@ -30,7 +30,7 @@ namespace AStar
 			get => _ChoosenHeuristic;
             set => _ChoosenHeuristic = value;
         }
-		private static Heuristic _ChoosenHeuristic = AStarSearch.EuclidianHeuristic;
+		private static Heuristic _ChoosenHeuristic = AStarSearch.EuclideanHeuristic;
 
 		public int NbArcsVisited => _NbArcsVisited;
 		private int _NbArcsVisited;

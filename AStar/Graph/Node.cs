@@ -8,7 +8,7 @@ using AStar.Search.Wave;
 namespace AStar
 {
     [Serializable]
-    public class Node
+    public class Node : IEquatable<Node>
     {
         public Node(double PositionX, double PositionY, double PositionZ)
         {
@@ -25,8 +25,10 @@ namespace AStar
         public Node() { }
 
         public IList IncomingArcs => _IncomingArcs;
+        private ArrayList _IncomingArcs = new ArrayList();
 
         public IList OutgoingArcs => _OutgoingArcs;
+        private ArrayList _OutgoingArcs = new ArrayList();
 
         public bool Passable
         {
@@ -42,20 +44,9 @@ namespace AStar
                 _Passable = value;
             }
         }
+        private bool _Passable = false;
 
-        public double X => Position.X;
-
-        public double Y => Position.Y;
-
-        public double Z => Position.Z;
-
-        public void ChangeXYZ(double PositionX, double PositionY, double PositionZ)
-        {
-            Position.X = PositionX;
-            Position.Y = PositionY;
-            Position.Z = PositionZ;
-        }
-
+        #region Координаты
         public Point3D Position
         {
             get => _Position;
@@ -69,6 +60,22 @@ namespace AStar
                     arc2.LengthUpdated = false;
             }
         }
+        private Point3D _Position = new Point3D(0, 0, 0);
+
+        public double X => Position.X;
+
+        public double Y => Position.Y;
+
+        public double Z => Position.Z;
+
+        public void ChangeXYZ(double PositionX, double PositionY, double PositionZ)
+        {
+            Position.X = PositionX;
+            Position.Y = PositionY;
+            Position.Z = PositionZ;
+        } 
+        #endregion
+
 
         public Node[] AccessibleNodes
         {
@@ -205,7 +212,7 @@ namespace AStar
 
         public override string ToString()
         {
-            return this.Position.ToString();
+            return Position.ToString();
         }
 
         public override bool Equals(object O)
@@ -226,29 +233,33 @@ namespace AStar
 #else
             if(O is Node node)
 #endif
-                return this.Position.Equals(node.Position);
+                return _Position.Equals(node._Position);
             return false;
+        }
+        public bool Equals(Node n)
+        {
+            return _Position.Equals(n._Position);
         }
 
         public object Clone()
         {
-            return new Node(this.X, this.Y, this.Z)
+            return new Node(X, Y, Z)
             {
-                _Passable = this._Passable
+                _Passable = _Passable
             };
         }
 
         public override int GetHashCode()
         {
-            return this.Position.GetHashCode();
+            return Position.GetHashCode();
         }
 
-        public static double EuclidianDistance(Node N1, Node N2)
+        public static double EuclideanDistance(Node N1, Node N2)
         {
-            return Math.Sqrt(Node.SquareEuclidianDistance(N1, N2));
+            return Math.Sqrt(SquareEuclideanDistance(N1, N2));
         }
 
-        public static double SquareEuclidianDistance(Node N1, Node N2)
+        public static double SquareEuclideanDistance(Node N1, Node N2)
         {
             if (N1 is null || N2 is null)
                 throw new ArgumentNullException();
@@ -283,39 +294,37 @@ namespace AStar
 
         public static void BoundingBox(IList NodesGroup, out double[] MinPoint, out double[] MaxPoint)
         {
-            if (!(NodesGroup[0] is Node node))
-            {
-                throw new ArgumentException("The list must only contain elements of type Node.");
-            }
             if (NodesGroup.Count == 0)
-            {
                 throw new ArgumentException("The list of nodes is empty.");
-            }
-            int num = 3;
-            MinPoint = new double[num];
-            MaxPoint = new double[num];
-            for (int i = 0; i < num; i++)
-            {
-                MinPoint[i] = (MaxPoint[i] = node.Position[i]);
-            }
-            foreach (object obj in NodesGroup)
-            {
-                Node node2 = (Node)obj;
-                for (int j = 0; j < num; j++)
-                {
-                    if (MinPoint[j] > node2.Position[j])
-                        MinPoint[j] = node2.Position[j];
 
-                    if (MaxPoint[j] < node2.Position[j])
-                        MaxPoint[j] = node2.Position[j];
-                }
+            if (!(NodesGroup[0] is Node))
+                throw new ArgumentException("The list must only contain elements of type Node.");
+
+            MinPoint = new double[3] {double.MaxValue, double.MaxValue, double.MaxValue};
+            MaxPoint = new double[3] {double.MinValue, double.MinValue, double.MinValue};
+            
+            foreach (Node node2 in NodesGroup)
+            {
+                if (MinPoint[0] > node2._Position[0])
+                    MinPoint[0] = node2._Position[0];
+                if (MinPoint[1] > node2._Position[1])
+                    MinPoint[1] = node2._Position[1];
+                if (MinPoint[2] > node2._Position[2])
+                    MinPoint[2] = node2._Position[2];
+
+                if (MaxPoint[0] < node2._Position[0])
+                    MaxPoint[0] = node2._Position[0];
+                if (MaxPoint[1] < node2._Position[1])
+                    MaxPoint[1] = node2._Position[1];
+                if (MaxPoint[2] < node2._Position[2])
+                    MaxPoint[2] = node2._Position[2];
             }
         }
 
+#if NodeTags
         /// <summary>
         /// Список меток
         /// </summary>
-#if NodeTags
         [XmlIgnore]
         public Dictionary<object, object> Tags
         {
@@ -344,10 +353,5 @@ namespace AStar
         }
         [NonSerialized]
         private WaveWeight _waveWeight;
-
-        private Point3D _Position = new Point3D(0, 0, 0);
-        private bool _Passable = false;
-        private ArrayList _IncomingArcs = new ArrayList();
-        private ArrayList _OutgoingArcs = new ArrayList();
     }
 }

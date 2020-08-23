@@ -40,7 +40,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>bin\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;CODE_ANALYSIS;DEBUG_LOG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;CODE_ANALYSIS;NO_DEBUG_LOG</DefineConstants>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>full</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -63,6 +63,7 @@
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Graph\Extensions.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Graph\Arc.cs" />
     <Compile Include="Instruments\GraphSimplifier.cs" />
@@ -79,7 +80,6 @@
     <Compile Include="Instruments\Statistics.cs" />
     <Compile Include="Classes\Track.cs" />
     <Compile Include="Classes\Vector3D.cs" />
-    <Compile Include="Search\Wave\WaveStatistic.cs" />
     <Compile Include="Search\Wave\WaveWeight.cs" />
   </ItemGroup>
   <ItemGroup>

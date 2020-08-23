@@ -19,7 +19,7 @@ namespace AStar
 
         static AStarLogger()
         {
-#if DEBUG_LOG
+#if DEBUG || DEBUG_LOG
             Start(); 
 #endif
         }
@@ -58,7 +58,7 @@ namespace AStar
             {
                 try
                 {
-                    LogCache.Append(DateTime.Now.ToString(@"[HH-mm-ss.ffffzzzz]"));
+                    LogCache.Append(DateTime.Now.ToString(@"[HH-mm-ss.ffffff]"));
                     switch(logType)
                     {
                         case LogType.Log:

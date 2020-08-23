@@ -32,5 +32,14 @@ namespace AStar.Search.Wave
         {
             return /*Target != null  && Arc != null && */ Equals(tar, Target);
         }
+
+        public override string ToString()
+        {
+            if (Target is null)
+                return "INVALID";
+            if (Arc is null)
+                return $"{Weight}:\t{Target}";
+            return $"{Weight:N2}:\t{Target} <== {Arc.EndNode} <-- {Arc.StartNode}";
+        }
     }
 }
