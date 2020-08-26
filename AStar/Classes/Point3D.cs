@@ -76,7 +76,8 @@ namespace AStar
 		public static double DistanceBetween(Point3D P1, Point3D P2)
 		{
 			return Math.Sqrt((P1._Coordinates[0] - P2._Coordinates[0]) * (P1._Coordinates[0] - P2._Coordinates[0]) 
-                + (P1._Coordinates[1] - P2._Coordinates[1]) * (P1._Coordinates[1] - P2._Coordinates[1]));
+                + (P1._Coordinates[1] - P2._Coordinates[1]) * (P1._Coordinates[1] - P2._Coordinates[1])
+                + (P1._Coordinates[2] - P2._Coordinates[2]) * (P1._Coordinates[2] - P2._Coordinates[2]));
 		}
 
 		public static Point3D ProjectOnLine(Point3D Pt, Point3D P1, Point3D P2)
