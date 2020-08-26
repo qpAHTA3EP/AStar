@@ -3,11 +3,35 @@
 namespace AStar
 {
 	[Serializable]
-	public class Arc : IEquatable<Arc>
-	{
+	public class Arc
+#if IEquatable
+        : IEquatable<Arc> 
+#endif
+    {
         private Arc()
         {
             Weight = 1.0;
+            LengthUpdated = false;
+            Passable = true;
+        }
+
+        public Arc(Node start, Node end)
+        {
+            if (start is null)
+                throw new ArgumentNullException(nameof(start));
+            if (end is null)
+                throw new ArgumentNullException(nameof(end));
+
+            if (start.Equals(end))
+                throw new ArgumentException("StartNode and EndNode must be different");
+            _StartNode = start;
+            _EndNode = end;
+
+            if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 &&
+                _EndNode.IncomingArcs.AddUnique(this) >= 0)
+                throw new ArgumentException("StartNode and EndNode are already linked by an Arc");
+
+            Weight = 1;
             LengthUpdated = false;
             Passable = true;
         }
@@ -33,7 +57,21 @@ namespace AStar
 			Passable = true;
 		}
 
-        public static Arc Get(Node start, Node end, double weight = 1)
+
+
+        public static Arc Make(Node start, Node end, double weight = 1)
+        {
+            Arc arc = Get(start, end) ?? new Arc{_StartNode = start, _EndNode = end, _Weight = weight };
+            return arc;
+        }
+
+        /// <summary>
+        /// Проверка наличия ребра, связывающего обе вершины
+        /// </summary>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <returns></returns>
+        public static Arc Get(Node start, Node end)
         {
             if (start is null)
                 throw new ArgumentNullException(nameof(start));
@@ -47,34 +85,12 @@ namespace AStar
             if (arc != null)
             {
                 Arc arc2 = end.ArcComingFrom(start);
-                if (arc2 != null)
-                {
-                    if (arc.Equals(arc2))
-                    {
-                        arc._Weight = weight;
-                        return arc;
-                    }
-                    else
-                    {
-                        end.IncomingArcs.Remove(arc2);
-                        end.IncomingArcs.Add(arc);
-                        arc._Weight = weight;
-                        return arc;
-                    }
-                }
-            }
-            else
-            {
-                Arc arc2 = end.ArcComingFrom(start);
-                if (arc2 != null)
-                {
-                    start.OutgoingArcs.Add(arc2);
-                    arc2._Weight = weight;
-                    return arc2;
-                }
+                if (arc2 != null
+                    && arc.Equals(arc2))
+                    return arc;
             }
 
-            return new Arc{_StartNode = start, _EndNode = end, _Weight = weight };
+            return null;
         }
 
         public Node StartNode

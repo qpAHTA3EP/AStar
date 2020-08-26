@@ -8,7 +8,10 @@ using AStar.Search.Wave;
 namespace AStar
 {
     [Serializable]
-    public class Node : IEquatable<Node>
+    public class Node
+#if IEquatable
+        : IEquatable<Node> 
+#endif
     {
         public Node(double PositionX, double PositionY, double PositionZ)
         {
@@ -139,7 +142,7 @@ namespace AStar
         /// Удаление непроходимых ребер
         /// Метод является частью алгоритма сжатия графа
         /// </summary>
-        internal void RemoveImpassableArcs()
+        internal void RemoveUnpassableArcs()
         {
             int lastFreeElement = 0;
             // уплотнение массива
@@ -237,7 +240,7 @@ namespace AStar
         }
         public bool Equals(Node n)
         {
-            return n != null && _Position.Equals(n._Position) == true;
+            return n != null && _Position.Equals(n._Position);
         }
 
         public object Clone()
@@ -250,7 +253,7 @@ namespace AStar
 
         public override int GetHashCode()
         {
-            return Position.GetHashCode();
+            return _Position.GetHashCode();
         }
 
         public static double EuclideanDistance(Node N1, Node N2)

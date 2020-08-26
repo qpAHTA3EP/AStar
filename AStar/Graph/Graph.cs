@@ -50,9 +50,6 @@ namespace AStar
 		{
 			LN = new ArrayList();
 			LA = new ArrayList();
-#if disabled_20200723_1054
-            _tags = new Dictionary<object, object>(); 
-#endif
         }
 
         public IList Nodes => LN;
@@ -92,7 +89,17 @@ namespace AStar
             }
 		}
 
-		public bool AddArc(Arc NewArc)
+        private void lockAddArc(Arc NewArc)
+        {
+            BeforeGraphChanged?.Invoke(new ArrayList() { NewArc }, NotifyReason.AddingArc);
+
+            lock (Locker)
+            {
+                LA.Add(NewArc);
+            }
+        }
+
+        public bool AddArc(Arc NewArc)
 		{
 			if (NewArc is null || LA.Contains(NewArc))
 				return false;
@@ -100,21 +107,24 @@ namespace AStar
             if (!LN.Contains(NewArc.StartNode) || !LN.Contains(NewArc.EndNode))
 				throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
 
-            lock (Locker)
-            {
-                BeforeGraphChanged?.Invoke(new ArrayList() { NewArc }, NotifyReason.AddingArc);
-                LA.Add(NewArc); 
-            }
-			return true;
+            lockAddArc(NewArc);
+
+            return true;
 		}
 
         public Arc AddArc(Node StartNode, Node EndNode, float Weight)
         {
-            Arc arc = Arc.Get(StartNode, EndNode, Weight);
-            lock (Locker)
+            Arc arc = Arc.Get(StartNode, EndNode);
+            if(arc is null)
             {
-                return AddArc(arc) ? arc : null;
+                arc = new Arc(StartNode, EndNode, Weight);
+                lock (Locker)
+                {
+                    return AddArc(arc) ? arc : null;
+                }
             }
+
+            return arc;
         }
     
 
@@ -156,7 +166,7 @@ namespace AStar
 			return true;
 		}
 
-        public int RemoveImpassableNodes()
+        public int RemoveUnpassableNodes()
         {
             int num = LN.Count;
             int lastFreeElement = 0;
@@ -169,7 +179,7 @@ namespace AStar
                     if (LN[i] is Node node
                         && node.Passable)
                     {
-                        node.RemoveImpassableArcs();
+                        node.RemoveUnpassableArcs();
                         LN[lastFreeElement] = node;
                         lastFreeElement++;
                     }
@@ -274,17 +284,6 @@ namespace AStar
 			Distance = num;
 			return result;
 		}
-
-#if disabled_20200723_1054
-        /// <summary>
-        /// Список меток
-        /// </summary>
-        [XmlIgnore]
-        public Dictionary<object, object> Tags { get => _tags; }
-
-        [NonSerialized]
-        private readonly Dictionary<object, object> _tags; 
-#endif
 
         private readonly ArrayList LN;
 		private readonly ArrayList LA;

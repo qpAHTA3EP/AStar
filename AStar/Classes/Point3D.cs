@@ -13,45 +13,70 @@ namespace AStar
             if (Coordinates.Length != 3)
 				throw new ArgumentException("The Coordinates' array must contain exactly 3 elements.");
 
-            X = Coordinates[0];
-			Y = Coordinates[1];
-			Z = Coordinates[2];
-		}
-
-		public Point3D(double CoordinateX, double CoordinateY, double CoordinateZ)
-		{
-			X = CoordinateX;
-			Y = CoordinateY;
-			Z = CoordinateZ;
-		}
-
-		public double this[int CoordinateIndex]
-		{
-			get => _Coordinates[CoordinateIndex];
-            set => _Coordinates[CoordinateIndex] = value;
+            _Coordinates[0] = Coordinates[0];
+            _Coordinates[1] = Coordinates[1];
+            _Coordinates[2] = Coordinates[2];
+            _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
         }
 
-		public double X
+        public Point3D(double CoordinateX, double CoordinateY, double CoordinateZ)
 		{
-			get => _Coordinates[0];
-            set => _Coordinates[0] = value;
+            _Coordinates[0] = CoordinateX;
+			_Coordinates[1] = CoordinateY;
+			_Coordinates[2] = CoordinateZ;
+            _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
         }
 
-		public double Y
-		{
-			get => _Coordinates[1];
-            set => _Coordinates[1] = value;
+        public double this[int CoordinateIndex]
+        {
+            get => _Coordinates[CoordinateIndex];
+            set
+            {
+                _Coordinates[CoordinateIndex] = value;
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+            }
         }
 
-		public double Z
-		{
-			get => _Coordinates[2];
-            set => _Coordinates[2] = value;
+        public double X
+        {
+            get => _Coordinates[0];
+            set
+            {
+                _Coordinates[0] = value;
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+            }
         }
+
+        public double Y
+        {
+            get => _Coordinates[1];
+            set
+            {
+                _Coordinates[1] = value;
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+            }
+        }
+
+        public double Z
+        {
+            get => _Coordinates[2];
+            set
+            {
+                _Coordinates[2] = value;
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+            }
+        }
+
+        public bool IsValid
+        {
+            get => _isValid;
+        }
+        bool _isValid = false;
 
 		public static double DistanceBetween(Point3D P1, Point3D P2)
 		{
-			return Math.Sqrt((P1.X - P2.X) * (P1.X - P2.X) + (P1.Y - P2.Y) * (P1.Y - P2.Y));
+			return Math.Sqrt((P1._Coordinates[0] - P2._Coordinates[0]) * (P1._Coordinates[0] - P2._Coordinates[0]) 
+                + (P1._Coordinates[1] - P2._Coordinates[1]) * (P1._Coordinates[1] - P2._Coordinates[1]));
 		}
 
 		public static Point3D ProjectOnLine(Point3D Pt, Point3D P1, Point3D P2)
@@ -93,15 +118,27 @@ namespace AStar
 
             return flag;
 #else
-            if (Point is Point3D point3D)
-                return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < double.Epsilon
-                       && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < double.Epsilon
-                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < double.Epsilon;
+            if (_isValid 
+                && Point is Point3D point3D 
+                && point3D._isValid)
+                return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
+                       && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
+                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;
             return false;
 #endif
         }
+        public bool Equals(Point3D point3D)
+        {
+            if(_isValid 
+                && point3D != null 
+                && point3D._isValid)
+                return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
+                       && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
+                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;
+            return false;
+        }
 
-		public override int GetHashCode()
+        public override int GetHashCode()
 		{
 			double num = 0.0;
 #if false
