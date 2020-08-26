@@ -119,9 +119,7 @@ namespace AStar
 
             return flag;
 #else
-            if (_isValid 
-                && Point is Point3D point3D 
-                && point3D._isValid)
+            if (Point is Point3D point3D)
                 return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
                        && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
                        && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;
@@ -130,9 +128,7 @@ namespace AStar
         }
         public bool Equals(Point3D point3D)
         {
-            if(_isValid 
-                && point3D != null 
-                && point3D._isValid)
+            if(point3D != null)
                 return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
                        && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
                        && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;
