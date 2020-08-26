@@ -28,9 +28,9 @@ namespace AStar.Search.Wave
 
         public bool IsValid => Target != null /* && Arc != null */;
 
-        public bool IsTarget(Node tar)
+        public bool IsTargetTo(Node tar)
         {
-            return /*Target != null  && Arc != null && */ Equals(tar, Target);
+            return /*Target != null  && Arc != null  &&*/ Target?.Equals(tar) == true;
         }
 
         public override string ToString()
