@@ -51,7 +51,7 @@ namespace AStar.Search.Wave
                 || StartNode.Position.IsOrigin || EndNode.Position.IsOrigin)
             {
 
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Некорректные входные данные. Прерываем поиск");
 #endif
                 return false;
@@ -73,7 +73,7 @@ namespace AStar.Search.Wave
                 //WaveWeight endWW = EndNode.WaveWeight;
                 if (waveSource.Validate(startWW))
                 {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Найден кэш волны из End{EndNode}");
 #endif
                     // найден кэш волнового поиска для EndNode
@@ -85,7 +85,7 @@ namespace AStar.Search.Wave
                         if (GoBackUpNodes(StartNode, EndNode, out track))
                         {
                             // путь найден
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: В кэше найден путь: End{EndNode} <== Start{StartNode}");
 #endif
                             pathFound = true;
@@ -101,12 +101,12 @@ namespace AStar.Search.Wave
                         }
 
                         // Построить путь не удалось
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Путь в кэше не найден (или некорректен). Стираем волну");
 #endif
                         waveSource.ClearWave(); 
                     }
-#if DEBUG || DEBUG_LOG
+#if DEBUG || WAVE_DEBUG_LOG
                     catch (Exception e)
                     {
                         AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e.Message}'", true);
@@ -130,19 +130,19 @@ namespace AStar.Search.Wave
                 {
                     if (waveSource.GenerateWave(StartNode, EndNode))
                     {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: {nameof(WaveSource.GenerateWave)} завершилось успешно");
 #endif
 
                         startWW = StartNode.WaveWeight;
                         if (startWW.IsTargetTo(EndNode))
                         {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Формируем путь из Start{StartNode} ==> End{EndNode}");
 #endif
                             if (GoBackUpNodes(StartNode, EndNode, out track))
                             {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                                 AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Путь сформирован");
 #endif
                                 // путь найден
@@ -153,24 +153,24 @@ namespace AStar.Search.Wave
                             }
                             else
                             {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                                 AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Не удалось построить путь. Очищаем кэш волны");
 #endif
                                 waveSource.ClearWave();
                             }
                         }
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                         else AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Вершина Start{StartNode} не имеет волновой оценки, соответствующей End{EndNode}");
 #endif
                     }
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                     else
                     {
                         AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: {nameof(WaveSource.GenerateWave)} завершилось безрезультатно");
                     }
 #endif
                 }
-#if DEBUG || DEBUG_LOG
+#if DEBUG || WAVE_DEBUG_LOG
                 catch (Exception e)
                 {
                     AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e.Message}'", true);
@@ -274,7 +274,7 @@ namespace AStar.Search.Wave
         {
             bool result = false;
             track = new LinkedList<Node>();
-#if DEBUG || DEBUG_LOG
+#if DEBUG || WAVE_DEBUG_LOG
             StringBuilder sb = new StringBuilder();
 #endif
             Node currentNode = startNode;
@@ -294,7 +294,7 @@ namespace AStar.Search.Wave
                 }
                 else
                 {
-#if DEBUG || DEBUG_LOG
+#if DEBUG || WAVE_DEBUG_LOG
                     string erroeMsg = $"Вершина {currentNode} не имеет волновой оценки, позволяющей построить путь к End{endNode}";
                     sb.AppendLine(erroeMsg);
 #endif
@@ -304,7 +304,7 @@ namespace AStar.Search.Wave
             }
             result = track.Last?.Value.Equals(endNode) == true;
 
-#if DEBUG || DEBUG_LOG
+#if DEBUG || WAVE_DEBUG_LOG
             sb.Append($"{nameof(WaveSearch)}.{nameof(GoBackUpNodes)}: Track:\t");
             var current = track.First;
             var last = track.Last;

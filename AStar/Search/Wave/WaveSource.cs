@@ -112,7 +112,7 @@ namespace AStar.Search.Wave
         {
             if (startNode is null || endNode is null)
             {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Некорректные исходные данные");
 #endif
                 return false;
@@ -122,7 +122,7 @@ namespace AStar.Search.Wave
 
             if (Validate(startNode.WaveWeight))
             {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Start{startNode} имеет волновой вес {startNode.WaveWeight}... Прерываем волну");
 #endif
                 return true;
@@ -132,7 +132,7 @@ namespace AStar.Search.Wave
 
             if (waveFront.Count == 0 || waveFront.First.Value.WaveWeight?.IsTargetTo(_target) != true)
             {
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Инициализируем новую волну из End{endNode}");
 #endif
                 // Помещаем в очередь обработки конечный узел
@@ -145,7 +145,7 @@ namespace AStar.Search.Wave
                 Enqueue(_target);
 #endif
             }
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
             else
             {
 #if DETAIL_LOG
@@ -170,7 +170,7 @@ namespace AStar.Search.Wave
                 {
                     pathFound = true;
 #if !continue_waveSearch_after_reaching_startNode
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Путь найден. Достигнута вершина Start{startNode} | {startNode.WaveWeight} ... Завершаем поиск");
 #if DETAIL_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Фронт волны (ProcessingQueue):");
@@ -182,7 +182,7 @@ namespace AStar.Search.Wave
 #endif
                     break;
 #else
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Путь найден. Достигнута вершина Start{StartNode}... Продолжаем волну");
 #endif
 #endif
@@ -205,7 +205,7 @@ namespace AStar.Search.Wave
                 if (node.WaveWeight is null)
                     throw new Exception($"Node{node} не имеет волновой оценки");
 
-#if DETAIL_LOG && DEBUG_LOG
+#if DETAIL_LOG && WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": Обрабатываем Node", node));
 #endif
                 // Просмотр входящих ребер
@@ -213,13 +213,13 @@ namespace AStar.Search.Wave
                 {
                     if (inArc.Passable && inArc.StartNode.Passable)
                     {
-#if DETAIL_LOG && DEBUG_LOG
+#if DETAIL_LOG && WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \tАнализируем ребро ", inArc));
 #endif
                         double weight = node.WaveWeight.Weight + inArc.Length;
 
                         bool inNodeTargetMatch = inArc.StartNode.WaveWeight != null && inArc.StartNode.WaveWeight.IsTargetTo(_target);
-#if DETAIL_LOG && DEBUG_LOG
+#if DETAIL_LOG && WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t", inNodeTargetMatch ? "MATCH " : "MISMATCH ", inArc.StartNode.WaveWeight));
                         //AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ":\t\tНовый волновой вес : ", weight.ToString("N2")));
 #endif
@@ -231,14 +231,14 @@ namespace AStar.Search.Wave
                                 // производим переоценку, если "волновой вес" стартовой вершины ребра больше чем weight
                                 // это значит что путь через текущую вершину node - короче
                                 inArc.StartNode.WaveWeight.Arc = inArc;
-#if DETAIL_LOG && DEBUG_LOG
+#if DETAIL_LOG && WAVE_DEBUG_LOG
                                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tИзменяем волновую оценку на ", inArc.StartNode.WaveWeight));
                                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПомещаем в очередь обработки Node", inArc.StartNode));
 #endif
                                 // добавляем стартовую вершину ребра в очередь, для обработки
                                 Enqueue(inArc.StartNode);
                             }
-#if DETAIL_LOG && DEBUG_LOG
+#if DETAIL_LOG && WAVE_DEBUG_LOG
                             else
                             {
                                 // В этом случае в из inArc.StartNode есть более короткий путь к endNode
@@ -250,7 +250,7 @@ namespace AStar.Search.Wave
                         {
                             // присваиваем "волновой вес" стартовой вершине ребра
                             inArc.StartNode.WaveWeight = new WaveWeight(this, inArc);
-#if DETAIL_LOG && DEBUG_LOG
+#if DETAIL_LOG && WAVE_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПрисваиваем волновую оценку ", inArc.StartNode.WaveWeight));
                             AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПомещаем в очередь обработки Node", inArc.StartNode));
 #endif
@@ -269,7 +269,7 @@ namespace AStar.Search.Wave
             {
                 foreach (Node n in _graph.Nodes)
                     n.WaveWeight = null;
-#if DEBUG_LOG
+#if WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSource)}.{nameof(ClearWave)}: {_graph.Nodes.Count} nodes processed");
 #endif
             }
