@@ -22,7 +22,7 @@ namespace AStar
 #if NodeTags
             this._tags = new Dictionary<object, object>();
 #endif
-            _waveWeight = new WaveWeight();
+            _waveWeight = null;
         }
 
         public Node() { }
@@ -346,12 +346,7 @@ namespace AStar
         [XmlIgnore]
         public WaveWeight WaveWeight
         {
-            get
-            {
-                if (_waveWeight is null)
-                    _waveWeight = new WaveWeight();
-                return _waveWeight;
-            }
+            get => _waveWeight;
 
             set => _waveWeight = value;
         }

@@ -95,7 +95,7 @@ namespace AStar
         /// </summary>
         public bool IsOrigin
         {
-            get => _Coordinates[0] != 0 || _Coordinates[1] != 0 || _Coordinates[2] != 0;
+            get => _Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0;
         }
         /// <summary>
         /// Евклидово расстояние между точками
