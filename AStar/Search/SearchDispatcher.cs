@@ -29,7 +29,10 @@ namespace AStar
         /// <returns></returns>
         public bool SearchPath(Node StartNode, Node EndNode)
         {
-            if (StartNode == null || EndNode == null)
+            if (StartNode == null
+                || !StartNode.Position.IsOrigin
+                || EndNode == null
+                || !EndNode.Position.IsOrigin)
                 return false;
 #if DEBUG_LOG
             StringBuilder sb = new StringBuilder();

@@ -190,10 +190,14 @@ namespace AStar
                 return _StartNode.Equals(arc._StartNode) && _EndNode.Equals(arc._EndNode);
             return false;
         }
+
+#if IEquatable
         public bool Equals(Arc arc)
         {
             return _StartNode.Equals(arc._StartNode) && _EndNode.Equals(arc._EndNode);
-        }
+        } 
+#endif
+
         public override int GetHashCode()
 		{
 			return (int)Length;

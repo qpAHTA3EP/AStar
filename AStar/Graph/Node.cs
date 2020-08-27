@@ -238,10 +238,12 @@ namespace AStar
                 return _Position.Equals(node._Position);
             return false;
         }
+#if IEquatable
         public bool Equals(Node n)
         {
             return n != null && _Position.Equals(n._Position);
-        }
+        } 
+#endif
 
         public object Clone()
         {

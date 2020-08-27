@@ -245,43 +245,43 @@ namespace AStar
 		public Node ClosestNode(double PtX, double PtY, double PtZ, out double Distance, bool IgnorePassableProperty)
 		{
 			Node result = null;
-			double num = -1.0;
+			double closestNodeDist = double.MaxValue;
 			Point3D p = new Point3D(PtX, PtY, PtZ);
 			foreach (Node node in LN)
 			{
 				if (!IgnorePassableProperty || node.Passable)
 				{
-					double num2 = Point3D.DistanceBetween(node.Position, p);
-					if (num < 0 || num > num2)
+					double dist = Point3D.DistanceBetween(node.Position, p);
+					if (closestNodeDist > dist)
 					{
-						num = num2;
+						closestNodeDist = dist;
 						result = node;
 					}
 				}
 			}
-			Distance = num;
+			Distance = closestNodeDist;
 			return result;
 		}
 
 		public Arc ClosestArc(double PtX, double PtY, double PtZ, out double Distance, bool IgnorePassableProperty)
 		{
 			Arc result = null;
-			double num = -1.0;
-			Point3D point3D = new Point3D(PtX, PtY, PtZ);
+			double closestArcDist = double.MaxValue;
+			Point3D point = new Point3D(PtX, PtY, PtZ);
 			foreach (Arc arc in LA)
 			{
 				if (!IgnorePassableProperty || arc.Passable)
 				{
-					Point3D p = Point3D.ProjectOnLine(point3D, arc.StartNode.Position, arc.EndNode.Position);
-					double num2 = Point3D.DistanceBetween(point3D, p);
-					if (num < 0 || num > num2)
+					Point3D pointProjection = Point3D.ProjectOnLine(point, arc.StartNode.Position, arc.EndNode.Position);
+					double dist = Point3D.DistanceBetween(point, pointProjection);
+					if (closestArcDist > dist)
 					{
-						num = num2;
+						closestArcDist = dist;
 						result = arc;
 					}
 				}
 			}
-			Distance = num;
+			Distance = closestArcDist;
 			return result;
 		}
 

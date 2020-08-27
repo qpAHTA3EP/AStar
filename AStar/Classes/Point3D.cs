@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Text;
 
 namespace AStar
 {
 	[Serializable]
 	public class Point3D
-	{
-		public Point3D(double[] Coordinates)
+#if IEquatable
+        : IEquatable<Point3D>
+#endif
+    {
+        public Point3D(double[] Coordinates)
 		{
 			if (Coordinates is null)
 				throw new ArgumentNullException();
@@ -16,7 +20,9 @@ namespace AStar
             _Coordinates[0] = Coordinates[0];
             _Coordinates[1] = Coordinates[1];
             _Coordinates[2] = Coordinates[2];
-            _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+#if _isValid
+            _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0); 
+#endif
         }
 
         public Point3D(double CoordinateX, double CoordinateY, double CoordinateZ)
@@ -24,7 +30,9 @@ namespace AStar
             _Coordinates[0] = CoordinateX;
 			_Coordinates[1] = CoordinateY;
 			_Coordinates[2] = CoordinateZ;
-            _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+#if _isValid
+            _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0); 
+#endif
         }
 
         public double this[int CoordinateIndex]
@@ -33,7 +41,9 @@ namespace AStar
             set
             {
                 _Coordinates[CoordinateIndex] = value;
-                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+#if IsValid
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0); 
+#endif
             }
         }
 
@@ -43,7 +53,9 @@ namespace AStar
             set
             {
                 _Coordinates[0] = value;
-                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+#if IsValid
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0); 
+#endif
             }
         }
 
@@ -53,7 +65,9 @@ namespace AStar
             set
             {
                 _Coordinates[1] = value;
-                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+#if IsValid
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0); 
+#endif
             }
         }
 
@@ -63,17 +77,33 @@ namespace AStar
             set
             {
                 _Coordinates[2] = value;
-                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0);
+#if IsValid
+                _isValid = !(_Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0); 
+#endif
             }
         }
 
+#if IsValid
         public bool IsValid
         {
             get => _isValid;
         }
-        bool _isValid = false;
-
-		public static double DistanceBetween(Point3D P1, Point3D P2)
+        bool _isValid = true;
+#endif
+        /// <summary>
+        /// Совпадает с началом координат
+        /// </summary>
+        public bool IsOrigin
+        {
+            get => _Coordinates[0] != 0 || _Coordinates[1] != 0 || _Coordinates[2] != 0;
+        }
+        /// <summary>
+        /// Евклидово расстояние между точками
+        /// </summary>
+        /// <param name="P1"></param>
+        /// <param name="P2"></param>
+        /// <returns></returns>
+        public static double DistanceBetween(Point3D P1, Point3D P2)
 		{
 			return Math.Sqrt((P1._Coordinates[0] - P2._Coordinates[0]) * (P1._Coordinates[0] - P2._Coordinates[0]) 
                 + (P1._Coordinates[1] - P2._Coordinates[1]) * (P1._Coordinates[1] - P2._Coordinates[1])
@@ -109,7 +139,7 @@ namespace AStar
 
 		public override bool Equals(object Point)
 		{
-#if false
+#if Original_AStar
             Point3D point3D = (Point3D)Point;
             if (Point is null)
                 throw new ArgumentException("Object must be of type " + base.GetType());
@@ -120,20 +150,34 @@ namespace AStar
             return flag;
 #else
             if (Point is Point3D point3D)
+#if false
                 return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
-                       && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
-                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;
+                               && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
+                               && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon; 
+#else
+                return point3D._Coordinates[0] == _Coordinates[0]
+                       && point3D._Coordinates[1] == _Coordinates[1]
+                       && point3D._Coordinates[2] == _Coordinates[2];
+#endif
             return false;
 #endif
         }
+#if IEquatable
         public bool Equals(Point3D point3D)
         {
-            if(point3D != null)
-                return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
+            if (point3D != null)
+#if false
+		        return Math.Abs(point3D._Coordinates[0] - _Coordinates[0]) < 2 * double.Epsilon
                        && Math.Abs(point3D._Coordinates[1] - _Coordinates[1]) < 2 * double.Epsilon
-                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;
+                       && Math.Abs(point3D._Coordinates[2] - _Coordinates[2]) < 2 * double.Epsilon;  
+#else
+                return point3D._Coordinates[0] == _Coordinates[0]
+                       && point3D._Coordinates[1] == _Coordinates[1]
+                       && point3D._Coordinates[2] == _Coordinates[2];
+#endif
             return false;
-        }
+        } 
+#endif
 
         public override int GetHashCode()
 		{
@@ -150,20 +194,19 @@ namespace AStar
 
 		public override string ToString()
         {
-
             if (_Coordinates.Length == 3)
-                //return $"{{{_Coordinates[0]:N2}; {_Coordinates[1]:N2}; {_Coordinates[2]:N2}}}";
                 return string.Concat('{', _Coordinates[0].ToString("N2"), "; ", _Coordinates[1].ToString("N2"), "; " ,
                     _Coordinates[2].ToString("N2"), '}');
 
-			char text2 = ';';
-			char text3 = '}';
-			string result = "{";
-			int num = 3;
-			for (int i = 0; i < num; i++)
-				result = result + _Coordinates[i].ToString("N2") + ((i != num - 1) ? text2 : text3);
+            StringBuilder sb = new StringBuilder('{');
 
-            return result;
+            for (int i = 0; i < _Coordinates.Length - 1; i++)
+            {
+                sb.Append(_Coordinates[i].ToString("N2")).Append("; ");
+            }
+            sb.Append(_Coordinates[_Coordinates.Length - 1].ToString("N2")).Append('}');
+
+            return sb.ToString();
         }
 
 		private double[] _Coordinates = new double[3];
