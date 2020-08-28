@@ -27,9 +27,14 @@ namespace AStar
             _StartNode = start;
             _EndNode = end;
 
-            if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 &&
-                _EndNode.IncomingArcs.AddUnique(this) >= 0)
-                throw new ArgumentException("StartNode and EndNode are already linked by an Arc");
+#if Arc_AddUnique
+        if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 &&
+            _EndNode.IncomingArcs.AddUnique(this) >= 0)
+                throw new ArgumentException("StartNode and EndNode are already linked by an Arc"); 
+#else
+            _StartNode.OutgoingArcs.Add(this);
+            _EndNode.IncomingArcs.Add(this);
+#endif
 
             Weight = 1;
             LengthUpdated = false;
@@ -48,11 +53,16 @@ namespace AStar
 			_StartNode = start;
 			_EndNode = end;
 
-            if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 && 
+#if Arc_AddUnique
+            if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 &&
                 _EndNode.IncomingArcs.AddUnique(this) >= 0)
-                throw new ArgumentException("StartNode and EndNode are already linked by an Arc");
+                throw new ArgumentException("StartNode and EndNode are already linked by an Arc"); 
+#else
+            _StartNode.OutgoingArcs.Add(this);
+            _EndNode.IncomingArcs.Add(this);
+#endif
 
-			Weight = weight;
+            Weight = weight;
 			LengthUpdated = false;
 			Passable = true;
 		}
@@ -106,9 +116,13 @@ namespace AStar
                 _StartNode?.OutgoingArcs.Remove(this);
 
                 _StartNode = value;
-				_StartNode.OutgoingArcs.AddUnique(this);
-			}
-		}
+#if Arc_AddUnique
+                _StartNode.OutgoingArcs.AddUnique(this); 
+#else
+                _StartNode.OutgoingArcs.Add(this);
+#endif
+            }
+        }
 
 		public Node EndNode
 		{
@@ -121,9 +135,13 @@ namespace AStar
 					throw new ArgumentException("StartNode and EndNode must be different");
                 _EndNode?.IncomingArcs.Remove(this);
                 _EndNode = value;
-				_EndNode.IncomingArcs.AddUnique(this);
-			}
-		}
+#if Arc_AddUnique
+                _EndNode.IncomingArcs.AddUnique(this);
+#else
+                _EndNode.IncomingArcs.Add(this); 
+#endif
+            }
+        }
 
 		public double Weight
 		{
