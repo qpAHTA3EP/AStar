@@ -118,6 +118,8 @@ namespace AStar.Search.Wave
                 return false;
             }
 
+            // Target не совпадает с endNode, тогда волновой фронт waveFront будет очищен, 
+            // а волна реинициализирована
             Target = endNode;
 
             if (Validate(startNode.WaveWeight))
@@ -137,10 +139,10 @@ namespace AStar.Search.Wave
 #endif
                 // Помещаем в очередь обработки конечный узел
                 waveFront.Clear();
-
 #if processingQueue_SortedSet
                     processingQueue.Add(EndNode); 
 #else
+                _initializationTime = Environment.TickCount;
                 _target.WaveWeight = new WaveWeight(this, null);
                 Enqueue(_target);
 #endif
@@ -196,7 +198,7 @@ namespace AStar.Search.Wave
         /// просмотр её входящих ребер, присвоение "волновой оценки" вершине и 
         /// добавление в очередь обработки "входящих" вершин
         /// </summary>
-        public Node ProcessingFirst()
+        private Node ProcessingFirst()
         {
             Node node = Dequeue();
 
@@ -265,6 +267,7 @@ namespace AStar.Search.Wave
 
         public void ClearWave()
         {
+            //TODO: Попробовать без ClearWave()
             if (_graph != null)
             {
                 foreach (Node n in _graph.Nodes)

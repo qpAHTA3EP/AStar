@@ -21,10 +21,12 @@
         /// </summary>
         public abstract double PathLength { get; }
 
+#if SearchEnded
         /// <summary>
         /// Флаг, указывающий на завершение поиска
         /// </summary>
-        public abstract bool SearchEnded { get; }
+        public abstract bool SearchEnded { get; } 
+#endif
 
         /// <summary>
         /// Флаг, указывающие на успешное построение пути

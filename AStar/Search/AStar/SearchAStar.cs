@@ -157,7 +157,7 @@ namespace AStar.Search.AStar
 
         public bool SearchStarted => _NbIterations > 0;
 
-        public override bool SearchEnded => SearchStarted && _Open.Count == 0;
+        public bool SearchEnded => SearchStarted && _Open.Count == 0;
 
         public override bool PathFound => _LeafToGoBackUp != null;
 

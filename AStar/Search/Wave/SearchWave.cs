@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace AStar.Search.Wave
 {
@@ -32,7 +31,9 @@ namespace AStar.Search.Wave
         {
             foundedPath = null;
             foundedPathLength = -1;
-            searchEnded = false;
+#if SearchEnded
+            searchEnded = false; 
+#endif
             pathFound = false;
         }
 
@@ -89,6 +90,9 @@ namespace AStar.Search.Wave
                             AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: В кэше найден путь: End{EndNode} <== Start{StartNode}");
 #endif
                             pathFound = true;
+#if SearchEnded
+                            searchEnded = true; 
+#endif
                             foundedPath = new Node[track.Count];
                             foundedPathLength = -1;
 
@@ -104,7 +108,7 @@ namespace AStar.Search.Wave
 #if WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Путь в кэше не найден (или некорректен). Стираем волну");
 #endif
-                        waveSource.ClearWave(); 
+                        waveSource.ClearWave();  
                     }
 #if DEBUG || WAVE_DEBUG_LOG
                     catch (Exception e)
@@ -156,7 +160,9 @@ namespace AStar.Search.Wave
 #if WAVE_DEBUG_LOG
                                 AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Не удалось построить путь. Очищаем кэш волны");
 #endif
-                                waveSource.ClearWave();
+#if true
+                                waveSource.ClearWave(); 
+#endif
                             }
                         }
 #if WAVE_DEBUG_LOG
@@ -185,6 +191,7 @@ namespace AStar.Search.Wave
                 catch
                 {
 #endif
+                    Reset();
                     waveSource.ClearWave();
                 }
             }
@@ -192,7 +199,9 @@ namespace AStar.Search.Wave
 #if SearchStatistics
             SearchStatistics.Finish(SearchMode.WaveFirst, EndNode, path?.Length ?? 0);
 #endif
-            searchEnded = true;
+#if SearchEnded
+            searchEnded = true; 
+#endif
             return pathFound;
         }
 
@@ -203,7 +212,11 @@ namespace AStar.Search.Wave
         {
             get
             {
-                if (searchEnded && pathFound)
+#if SearchEnded
+                if (searchEnded && pathFound) 
+#else
+                if (pathFound)
+#endif
                 {
                     return foundedPath;
                 }
@@ -219,9 +232,13 @@ namespace AStar.Search.Wave
         {
             get
             {
-                if (searchEnded && pathFound && foundedPath?.Length > 0)
+#if SearchEnded
+                if (searchEnded && pathFound && foundedPath?.Length > 0) 
+#else
+                if (pathFound && foundedPath?.Length > 0)
+#endif
                     if (foundedPathLength < 0)
-                        return foundedPathLength = foundedPath.Sum((n) => n.WaveWeight.Weight);
+                        return foundedPathLength = foundedPath[0].WaveWeight.Weight;//foundedPath.Sum((n) => n.WaveWeight.Weight);
                     else return foundedPathLength;
                 return 0;
             }
@@ -274,7 +291,7 @@ namespace AStar.Search.Wave
         {
             bool result = false;
             track = new LinkedList<Node>();
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVE_DEBUG_LOG
             StringBuilder sb = new StringBuilder();
 #endif
             Node currentNode = startNode;
@@ -294,7 +311,7 @@ namespace AStar.Search.Wave
                 }
                 else
                 {
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVE_DEBUG_LOG
                     string erroeMsg = $"Вершина {currentNode} не имеет волновой оценки, позволяющей построить путь к End{endNode}";
                     sb.AppendLine(erroeMsg);
 #endif
@@ -304,7 +321,7 @@ namespace AStar.Search.Wave
             }
             result = track.Last?.Value.Equals(endNode) == true;
 
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVE_DEBUG_LOG
             sb.Append($"{nameof(WaveSearch)}.{nameof(GoBackUpNodes)}: Track:\t");
             var current = track.First;
             var last = track.Last;
@@ -317,14 +334,16 @@ namespace AStar.Search.Wave
             AStarLogger.WriteLine(result ? LogType.Debug : LogType.Error, sb.ToString(), false);
 #endif
             return result;
-        } 
+        }
 #endif
 
+#if SearchEnded
         /// <summary>
         /// Флаг, обозначающий, что поиск пути завершен
         /// </summary>
         public override bool SearchEnded => searchEnded;
-        private bool searchEnded = false;
+        private bool searchEnded = false; 
+#endif
 
         /// <summary>
         /// Флаг, обозначающий, что путь найден
