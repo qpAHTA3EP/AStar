@@ -296,7 +296,7 @@ namespace AStar.Search.Wave
             {
                 var endWW = _arc.EndNode.WaveWeight;
                 if (endWW._source != _source)
-                    throw new ArgumentException($"Несоответстви источника волны на конце ребра {arc}");
+                    throw new ArgumentException($"Несоответствие источника волны на конце ребра {arc}");
                 _weight = endWW._weight + _arc.Length;
             }
             else _weight = 0;
@@ -340,16 +340,15 @@ namespace AStar.Search.Wave
         public bool IsValid => _source.Validate(this); 
 #endif
 
-        public int InitializationTime { get => _initializationTime;  }
+        public int InitializationTime  => _initializationTime; 
         int _initializationTime = 0;
 
         public override string ToString()
         {
-            if (!_source.Validate(this))
-                return "INVALID";
-            if (_arc is null)
-                return $"{_weight:N2}:\t{_source.Target}";
-            return $"{_weight:N2}:\t{_arc} ==> {_source.Target}";
+            return string.Concat(!_source.Validate(this) ? "INVALID" : string.Empty,
+                                 _weight.ToString("N2"), '\t',
+                                 _arc is null ? string.Empty : _arc + " ==> ",
+                                 _source.Target);
         }
 
         public int CompareTo(WaveWeight other)
@@ -368,7 +367,7 @@ namespace AStar.Search.Wave
                 //return Convert.ToInt32(w1 - w2); 
                 return 0;
             }
-            else throw new ArgumentException("Не сопадают источники волны");
+            else throw new ArgumentException("Не совпадают источники волны");
         }
     }
 
