@@ -162,9 +162,6 @@ namespace AStar
             else aStarSearcher.Rebase(graph);
             searcher = aStarSearcher;
             bool result = searcher.SearchPath(StartNode, EndNode)
-#if SearchEnded
-        && searcher.SearchEnded  
-#endif
                           && searcher.PathFound;
 #if DEBUG_LOG
             sw.Stop();
@@ -207,9 +204,6 @@ namespace AStar
             get
             {
                 if (searcher != null
-#if SearchEnded
-                    && searcher.SearchEnded  
-#endif
                     && searcher.PathFound)
                 {
                     return searcher.PathByNodes;
@@ -217,13 +211,6 @@ namespace AStar
                 return null;
             }
         }
-
-#if SearchEnded
-        /// <summary>
-        /// Флаг, указывающий на завершение поиска
-        /// </summary>
-        public bool SearchEnded => searcher?.SearchEnded == true; 
-#endif
 
         /// <summary>
         /// Флаг, указывающие на успешное построение пути

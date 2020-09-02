@@ -36,9 +36,6 @@ namespace AStar.Search.Wave
         {
             foundedPath = null;
             foundedPathLength = -1;
-#if SearchEnded
-            searchEnded = false; 
-#endif
             pathFound = false;
         }
 
@@ -96,9 +93,6 @@ namespace AStar.Search.Wave
                             AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: В кэше #{waveSource.CurrentSlotIndex} найден путь: Start{StartNode} ==> End{EndNode}");
 #endif
                             pathFound = true;
-#if SearchEnded
-                            searchEnded = true; 
-#endif
                             foundedPath = new Node[track.Count];
                             foundedPathLength = -1;
 
@@ -208,9 +202,6 @@ namespace AStar.Search.Wave
 #if SearchStatistics
             SearchStatistics.Finish(SearchMode.WaveFirst, EndNode, path?.Length ?? 0);
 #endif
-#if SearchEnded
-            searchEnded = true; 
-#endif
             return pathFound;
         }
 
@@ -221,14 +212,8 @@ namespace AStar.Search.Wave
         {
             get
             {
-#if SearchEnded
-                if (searchEnded && pathFound) 
-#else
                 if (pathFound)
-#endif
-                {
                     return foundedPath;
-                }
                 return null;
             }
         }
@@ -241,11 +226,7 @@ namespace AStar.Search.Wave
         {
             get
             {
-#if SearchEnded
-                if (searchEnded && pathFound && foundedPath?.Length > 0) 
-#else
                 if (pathFound && foundedPath?.Length > 0)
-#endif
                     if (foundedPathLength < 0)
                         return foundedPathLength = foundedPath[0].WaveWeight.Weight;
                     else return foundedPathLength;
@@ -345,14 +326,6 @@ namespace AStar.Search.Wave
 #endif
             return result;
         }
-#endif
-
-#if SearchEnded
-        /// <summary>
-        /// Флаг, обозначающий, что поиск пути завершен
-        /// </summary>
-        public override bool SearchEnded => searchEnded;
-        private bool searchEnded = false; 
 #endif
 
         /// <summary>
