@@ -100,9 +100,9 @@ namespace AStar
                     sb.AppendLine($"WaveSearch: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
 #endif
                 }
+#if DEBUG_LOG
                 catch (Exception e)
                 {
-#if DEBUG_LOG
                     sw.Stop();
                     AStarLogger.WriteLine(LogType.Error, $"WaveSearch EXCEPTION: Start{StartNode} ==> End{EndNode}", true);
                     AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
@@ -122,6 +122,8 @@ namespace AStar
                     AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
 #endif
 #elif DEBUG
+                catch (Exception e)
+                {
                     sw.Stop();
                     sb.AppendLine($"WaveSearch EXCEPTION: {e.Message}");
                     sb.AppendLine($"{nameof(WaveSearch)}: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
@@ -139,6 +141,9 @@ namespace AStar
                         sb.AppendLine($"\t{n}\t|\t{n.WaveWeight}");
                     AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
 #endif
+#else
+                catch
+                {
 #endif
                 }
             }
