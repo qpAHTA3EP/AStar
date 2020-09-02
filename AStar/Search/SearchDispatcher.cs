@@ -39,10 +39,6 @@ namespace AStar
             StringBuilder sb = new StringBuilder();
             Stopwatch sw = new Stopwatch();
 #endif
-#if disabled_20200723_1220
-            double distance = Node.EuclideanDistance(StartNode, EndNode);
-            if (distance > 90) 
-#endif
             {
                 // используем волновой поиск
                 if (waveSearcher is null)
