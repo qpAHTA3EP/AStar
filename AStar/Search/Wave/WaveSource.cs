@@ -12,7 +12,7 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Максимальное количество "сохраняемых" волн
         /// </summary>
-        public static readonly uint WavesLimit = 16;
+        public static readonly int WavesLimit = 16;
 
         public WaveSource()
         {
@@ -22,8 +22,8 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Индекс текущей волны в кэше
         /// </summary>
-        public uint CurrentSlotIndex => currentSlotIndex;
-        protected uint currentSlotIndex = 0;
+        public int CurrentSlotIndex => currentSlotIndex;
+        protected int currentSlotIndex = 0;
 
         /// <summary>
         /// Кэш волн
@@ -68,13 +68,13 @@ namespace AStar.Search.Wave
             if (n is null)
                 throw new ArgumentNullException(nameof(n));
 
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
             AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Привязываем источник волны к вершине {n}");
 #endif
             var source = WaveSources[currentSlotIndex];
             if (source is null)
             {
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Инициализируем источник #{currentSlotIndex}");
 #endif
                 WaveSources[currentSlotIndex] = new WaveSourceSlot(this, g, n);
@@ -87,63 +87,91 @@ namespace AStar.Search.Wave
                 // Ищем подходящий слот для волны
                 // Если нет слота, соответствующего графу и вершине,
                 // тогда выбираем слот с минимальным количеством использований 
-                uint bestSlotInd = currentSlotIndex;
-                uint usageNum = uint.MaxValue;
-                int initTime = int.MaxValue;
-                for (uint i = 0; i < WavesLimit; i++)
+                int invalidSlotInd = -1;
+#if !UsagePerTick
+                // выбираем слот с минимальным количеством использований в единицу времени
+                // UsageNumber / (TickCount - InitTime)
+                double worseUsagePerTick = double.MaxValue;
+                int worseSlotInd = -1;
+                int nowTicks = Environment.TickCount; 
+#else
+                uint usageNum = int.MaxValue;
+                int minUsageSlotInd = -1;
+                int oldestSlotInd = -1;
+                int minInitTime = int.MaxValue;
+#endif
+
+                for (int i = 0; i < WavesLimit; i++)
                 {
                     slot = WaveSources[i];
-                    if (slot is null)
+                    if (slot is null || slot.InitTime == 0)
                     {
-                        bestSlotInd = i;
-                        usageNum = uint.MaxValue;
-                        initTime = int.MaxValue;
+                        invalidSlotInd = i;
                         continue;
                     }
-
                     if (slot.IsTargetTo(g, n))
-                    {
-                        currentSlotIndex = i;
-#if DEBUG || WAVE_DEBUG_LOG
+                        {
+                            currentSlotIndex = i;
+#if WAVESOURCE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Обнаружен подходящий источник #{currentSlotIndex}");
                         AStarLogger.WriteLine(LogType.Debug, $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
 #endif
                         return;
                     }
-
-                    if (initTime > slot.InitTime)
+                    else
                     {
+
+#if !UsagePerTick       
+                        int slotTicks = nowTicks - slot.InitTime;
+                        double slotUsagePerTick = slotTicks > 0 ?
+                            slot.UsageNumber / slotTicks : slot.UsageNumber;
+                        if(worseUsagePerTick > slotUsagePerTick)
+                        {
+                            worseUsagePerTick = slotUsagePerTick;
+                            worseSlotInd = i;
+                            continue;
+                        }
+#else
                         if (slot.UsageNumber <= usageNum)
                         {
-                            initTime = slot.InitTime;
+                            minUsageSlotInd = i;
                             usageNum = slot.UsageNumber;
-                            bestSlotInd = i;
                         }
+
+                        if (minInitTime > slot.InitTime)
+                        {
+                            oldestSlotInd = i;
+                            minInitTime = slot.InitTime;
+                        } 
+#endif
                     }
                 }
 
-                currentSlotIndex = bestSlotInd;
+                if (invalidSlotInd >= 0)
+                    currentSlotIndex = invalidSlotInd;
+                else if (worseSlotInd >= 0)
+                    currentSlotIndex = worseSlotInd;
                 slot = WaveSources[currentSlotIndex];
                 if (slot is null)
                 {
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Создаем новый источник #{currentSlotIndex}");
 #endif
                     WaveSources[currentSlotIndex] = new WaveSourceSlot(this, g, n);
                 }
                 else
                 {
-#if DEBUG || WAVE_DEBUG_LOG
-                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Привязываем источник #{currentSlotIndex}:");
-                    AStarLogger.WriteLine(LogType.Debug, $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
+#if WAVESOURCE_DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Меняем привязку источника #{currentSlotIndex}:");
+                    AStarLogger.WriteLine(LogType.Debug, $"\tСтарая\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
 #endif
                     slot.AttachTo(this, g, n);
-#if DEBUG || WAVE_DEBUG_LOG
-                    AStarLogger.WriteLine(LogType.Debug, $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
+#if WAVESOURCE_DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Debug, $"\tНовая\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
 #endif
                 }
             }
-#if DEBUG || WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
             else
             {
                 slot = WaveSources[currentSlotIndex];
@@ -155,25 +183,7 @@ namespace AStar.Search.Wave
 #endif
         }
 
-#if false
-        /// <summary>
-        /// Проверка валидности текущей волны
-        /// </summary>
-        protected bool IsValid
-        {
-            get
-            {
-                var source = WaveSources[currentSlotIndex];
-                return source != null && source.Target != null && source.InitTime > 0;
-            }
-            set
-            {
-                if (!value)
-                    WaveSources[currentSlotIndex]?.Detach();
-            }
-        } 
-#endif
-
+#if WaveSource_Validate
         /// <summary>
         /// Сопоставление волнового веса <paramref name="ww"/> с текущей волной
         /// </summary>
@@ -183,7 +193,8 @@ namespace AStar.Search.Wave
         {
             var source = WaveSources[currentSlotIndex];
             return ww != null && source != null && ww.Source == this && source.InitTime > 0 && ww.InitTime == source.InitTime;
-        }
+        } 
+#endif
 
         /// <summary>
         /// Формирование волны из <see cref="Target"/> к <paramref name="startNode"/>
@@ -197,15 +208,19 @@ namespace AStar.Search.Wave
 
             if (startNode is null)
             {
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Некорректные исходные данные");
 #endif
                 return false;
             }
 
-            if (Validate(startNode.WaveWeight))
+#if WaveSource_Validate
+            if (Validate(startNode.WaveWeight))  
+#else
+            if (startNode.WaveWeight?.IsTargetTo(Target) == true)
+#endif
             {
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Start{startNode} имеет волновой вес {startNode.WaveWeight}... Прерываем волну");
 #endif
                 return true;
@@ -214,14 +229,14 @@ namespace AStar.Search.Wave
             bool pathFound = false;
 
             var source = WaveSources[currentSlotIndex];
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
             AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Используется источник #{currentSlotIndex}, имеющий параметры привязки:");
             AStarLogger.WriteLine(LogType.Debug, $"\tTarget{source.Target}\tUsageNumber: {source.UsageNumber}\t{nameof(InitTime)}: {source.InitTime}");
 #endif
 
             if (source.FrontCount == 0)
             {
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Инициализируем новую волну из End{source.Target}");
 #endif
                 // Помещаем в очередь обработки конечный узел
@@ -231,7 +246,7 @@ namespace AStar.Search.Wave
                 source.Initialize();
 #endif
             }
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
             else
             {
 #if DETAIL_LOG
@@ -242,7 +257,7 @@ namespace AStar.Search.Wave
                     AStarLogger.WriteLine(LogType.Debug, $"\t\t{node}\t|\t{node.WaveWeight}");
                 }
 #else
-                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Продолжаем кэшированный волновой фронт, содержащий {waveFront.Count} вершин");
+                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Продолжаем кэшированный волновой фронт, содержащий {source.FrontCount} вершин");
 #endif
             }
 #endif
@@ -256,7 +271,7 @@ namespace AStar.Search.Wave
                 {
                     pathFound = true;
 #if !continue_waveSearch_after_reaching_startNode
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Путь найден. Достигнута вершина Start{startNode} | {startNode.WaveWeight} ... Завершаем поиск");
 #if DETAIL_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Фронт волны (WaveFront):");
@@ -268,7 +283,7 @@ namespace AStar.Search.Wave
 #endif
                     break;
 #else
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Путь найден. Достигнута вершина Start{StartNode}... Продолжаем волну");
 #endif
 #endif
@@ -291,7 +306,7 @@ namespace AStar.Search.Wave
                 if (node.WaveWeight is null)
                     throw new Exception($"Node{node} не имеет волновой оценки");
 
-#if DETAIL_LOG && WAVE_DEBUG_LOG
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": Обрабатываем Node", node));
 #endif
                 // Просмотр входящих ребер
@@ -299,15 +314,14 @@ namespace AStar.Search.Wave
                 {
                     if (inArc.Passable && inArc.StartNode.Passable)
                     {
-#if DETAIL_LOG && WAVE_DEBUG_LOG
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \tАнализируем ребро ", inArc));
 #endif
                         double weight = node.WaveWeight.Weight + inArc.Length;
 
                         bool inNodeTargetMatch = inArc.StartNode.WaveWeight != null && inArc.StartNode.WaveWeight.IsTargetTo(Target);
-#if DETAIL_LOG && WAVE_DEBUG_LOG
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t", inNodeTargetMatch ? "MATCH " : "MISMATCH ", inArc.StartNode.WaveWeight));
-                        //AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ":\t\tНовый волновой вес : ", weight.ToString("N2")));
 #endif
                         if (inNodeTargetMatch)
                         {
@@ -317,14 +331,14 @@ namespace AStar.Search.Wave
                                 // производим переоценку, если "волновой вес" стартовой вершины ребра больше чем weight
                                 // это значит что путь через текущую вершину node - короче
                                 inArc.StartNode.WaveWeight.Arc = inArc;
-#if DETAIL_LOG && WAVE_DEBUG_LOG
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tИзменяем волновую оценку на ", inArc.StartNode.WaveWeight));
                                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПомещаем в очередь обработки Node", inArc.StartNode));
 #endif
                                 // добавляем стартовую вершину ребра в очередь, для обработки
                                 source.Enqueue(inArc.StartNode);
                             }
-#if DETAIL_LOG && WAVE_DEBUG_LOG
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                             else
                             {
                                 // В этом случае в из inArc.StartNode есть более короткий путь к endNode
@@ -336,7 +350,7 @@ namespace AStar.Search.Wave
                         {
                             // присваиваем "волновой вес" стартовой вершине ребра
                             inArc.StartNode.AttachTo(this).Arc = inArc;
-#if DETAIL_LOG && WAVE_DEBUG_LOG
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПрисваиваем волновую оценку ", inArc.StartNode.WaveWeight));
                             AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПомещаем в очередь обработки Node", inArc.StartNode));
 #endif
@@ -513,7 +527,7 @@ namespace AStar.Search.Wave
                 {
                     foreach (Node n in graph.Nodes)
                         n.WaveWeight?.Reset();
-#if WAVE_DEBUG_LOG
+#if WAVESOURCE_DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSource)}.{nameof(ClearWave)}: {graph.Nodes.Count} nodes processed");
 #endif
                 } 
@@ -621,7 +635,10 @@ namespace AStar.Search.Wave
 
             public override string ToString()
             {
-                return string.Concat(!_source.Validate(this) ? "INVALID\t|\t" : string.Empty,
+                return string.Concat(
+#if WaveSource_Validate
+                                     !_source.Validate(this) ? "INVALID\t|\t" : string.Empty,  
+#endif
                                      Weight.ToString("N2"), "\t|\t",
                                      InitTime, "\t|\t", 
                                      _arcs is null ? string.Empty : string.Concat(_arcs[_source.currentSlotIndex], " ==> "),
