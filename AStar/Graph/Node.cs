@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Xml.Serialization;
 using AStar.Search;
 using AStar.Search.Wave;
@@ -16,13 +17,9 @@ namespace AStar
         public Node(double PositionX, double PositionY, double PositionZ)
         {
             _Position = new Point3D(PositionX, PositionY, PositionZ);
-            _Passable = true;
-            _IncomingArcs = new ArrayList();
-            _OutgoingArcs = new ArrayList();
 #if NodeTags
             this._tags = new Dictionary<object, object>();
 #endif
-            _waveWeight = null;
         }
 
         public Node() { }
@@ -47,7 +44,7 @@ namespace AStar
                 _Passable = value;
             }
         }
-        private bool _Passable = false;
+        private bool _Passable = true;
 
         #region Координаты
         public Point3D Position
@@ -344,13 +341,16 @@ namespace AStar
         private Dictionary<object, object> _tags = new Dictionary<object, object>(); 
 #endif
         [XmlIgnore]
-        public WaveWeight WaveWeight
-        {
-            get => _waveWeight;
-
-            set => _waveWeight = value;
-        }
+        public WaveSource.WaveWeight WaveWeight => _waveWeight;
         [NonSerialized]
-        private WaveWeight _waveWeight;
+        private WaveSource.WaveWeight _waveWeight = null;
+
+        public WaveSource.WaveWeight AttachTo(WaveSource source)
+        {
+            if (_waveWeight is null || _waveWeight.Source != source)
+                _waveWeight = WaveSource.WaveWeight.Make(source);
+
+            return _waveWeight;
+        }
     }
 }

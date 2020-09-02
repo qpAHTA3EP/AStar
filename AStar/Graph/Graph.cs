@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Xml.Serialization;
 using System.Linq;
+using AStar.Tools;
 
 namespace AStar
 {
@@ -25,11 +26,16 @@ namespace AStar
 	[Serializable]
 	public class Graph
 	{
+        // TODO: Попробовать синхронизацию доступа через RWLocker
+        // см https://habr.com/ru/post/459514/#ReaderWriterLockSlim
         [XmlIgnore]
         public object Locker => this;
 #if false
         [NonSerialized]
-        object _locker = new object(); 
+        object _locker = new object();
+#elif false
+        [NonSerialized]
+        public readonly RWLocker locker = new RWLocker();
 #endif
 
 #if false

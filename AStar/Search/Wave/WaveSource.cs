@@ -1,126 +1,207 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Management.Instrumentation;
 using System.Text;
+using MyNW.Classes;
 
 namespace AStar.Search.Wave
 {
     public class WaveSource
     {
-        public WaveSource(Graph g)
+        /// <summary>
+        /// Максимальное количество "сохраняемых" волн
+        /// </summary>
+        public static readonly uint WavesLimit = 16;
+
+        public WaveSource()
         {
-            _graph = g;
+            WaveSources = new WaveSourceSlot[WavesLimit];
         }
 
-        public Graph Graph { get => _graph; }
-        Graph _graph;
+        /// <summary>
+        /// Индекс текущей волны в кэше
+        /// </summary>
+        public uint CurrentSlotIndex => currentSlotIndex;
+        protected uint currentSlotIndex = 0;
 
-        public Node Target { get =>_target;
-            set
+        /// <summary>
+        /// Кэш волн
+        /// </summary>
+        protected WaveSourceSlot[] WaveSources;
+
+        /// <summary>
+        /// Граф, ассоциированный с текущей волной
+        /// </summary>
+        public Graph Graph => WaveSources[currentSlotIndex]?.Graph;
+
+        /// <summary>
+        /// Вершина-источник текущей волны
+        /// </summary>
+        public Node Target => WaveSources[currentSlotIndex]?.Target;
+
+        /// <summary>
+        /// Метка времени инициализации текущей волны
+        /// </summary>
+        protected int InitTime => WaveSources[currentSlotIndex]?.InitTime ?? 0;
+
+        /// <summary>
+        /// Сопоставление вершины с источником текущей волны
+        /// </summary>
+        /// <param name="node"></param>
+        /// <returns></returns>
+        protected bool IsTargetTo(Node node)
+        {
+            var source = WaveSources[currentSlotIndex];
+            return source != null && source.Target != null && source.Target.Equals(node) && source.InitTime > 0;
+        }
+
+        /// <summary>
+        /// Зафиксировать (присоединить) источник волны к целевой вершине <paramref name="n"/> в графе <paramref name="g"/>
+        /// </summary>
+        /// <param name="g"></param>
+        /// <param name="n"></param>
+        public void AttachTo(Graph g, Node n)
+        {
+            if (g is null)
+                throw new ArgumentNullException(nameof(g));
+            if (n is null)
+                throw new ArgumentNullException(nameof(n));
+
+#if DEBUG || WAVE_DEBUG_LOG
+            AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Привязываем источник волны к вершине {n}");
+#endif
+            var source = WaveSources[currentSlotIndex];
+            if (source is null)
             {
-                if(!Equals(value, _target) || !Validate(value.WaveWeight))
+#if DEBUG || WAVE_DEBUG_LOG
+                AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Инициализируем источник #{currentSlotIndex}");
+#endif
+                WaveSources[currentSlotIndex] = new WaveSourceSlot(this, g, n);
+                return;
+            }
+
+            WaveSourceSlot slot;
+            if (!source.IsTargetTo(g, n))
+            {
+                // Ищем подходящий слот для волны
+                // Если нет слота, соответствующего графу и вершине,
+                // тогда выбираем слот с минимальным количеством использований 
+                uint bestSlotInd = currentSlotIndex;
+                uint usageNum = uint.MaxValue;
+                int initTime = int.MaxValue;
+                for (uint i = 0; i < WavesLimit; i++)
                 {
-                    _target = value;
-                    _target.WaveWeight = new WaveWeight(this, null);
-                    waveFront.Clear();
-                    _initializationTime = Environment.TickCount;
+                    slot = WaveSources[i];
+                    if (slot is null)
+                    {
+                        bestSlotInd = i;
+                        usageNum = uint.MaxValue;
+                        initTime = int.MaxValue;
+                        continue;
+                    }
+
+                    if (slot.IsTargetTo(g, n))
+                    {
+                        currentSlotIndex = i;
+#if DEBUG || WAVE_DEBUG_LOG
+                        AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Обнаружен подходящий источник #{currentSlotIndex}");
+                        AStarLogger.WriteLine(LogType.Debug, $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
+#endif
+                        return;
+                    }
+
+                    if (initTime > slot.InitTime)
+                    {
+                        if (slot.UsageNumber <= usageNum)
+                        {
+                            initTime = slot.InitTime;
+                            usageNum = slot.UsageNumber;
+                            bestSlotInd = i;
+                        }
+                    }
+                }
+
+                currentSlotIndex = bestSlotInd;
+                slot = WaveSources[currentSlotIndex];
+                if (slot is null)
+                {
+#if DEBUG || WAVE_DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Создаем новый источник #{currentSlotIndex}");
+#endif
+                    WaveSources[currentSlotIndex] = new WaveSourceSlot(this, g, n);
+                }
+                else
+                {
+#if DEBUG || WAVE_DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(AttachTo)}: Привязываем источник #{currentSlotIndex}:");
+                    AStarLogger.WriteLine(LogType.Debug, $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
+#endif
+                    slot.AttachTo(this, g, n);
+#if DEBUG || WAVE_DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Debug, $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
+#endif
                 }
             }
+#if DEBUG || WAVE_DEBUG_LOG
+            else
+            {
+                slot = WaveSources[currentSlotIndex];
+                AStarLogger.WriteLine(LogType.Debug,
+                    $"{nameof(WaveSource)}.{nameof(AttachTo)}: Используем источник #{currentSlotIndex}:");
+                AStarLogger.WriteLine(LogType.Debug,
+                    $"\tTarget{slot.Target}\tUsageNumber: {slot.UsageNumber}\t{nameof(InitTime)}: {slot.InitTime}");
+            }
+#endif
         }
-        Node _target;
 
-        public int InitializationTime { get => _initializationTime; }
-        int _initializationTime;
-
-        public bool IsTargetTo(Node node)
-        {
-            return _target != null && _target.Equals(node) && _initializationTime > 0;
-        }
-
-        public bool IsValid
+#if false
+        /// <summary>
+        /// Проверка валидности текущей волны
+        /// </summary>
+        protected bool IsValid
         {
             get
             {
-                return _target != null && _initializationTime > 0;
+                var source = WaveSources[currentSlotIndex];
+                return source != null && source.Target != null && source.InitTime > 0;
             }
             set
             {
-                if(!value)
-                {
-                    _target = null;
-                    WaveFront.Clear();
-                    _initializationTime = 0;
-                }
+                if (!value)
+                    WaveSources[currentSlotIndex]?.Detach();
             }
-        }
-
-        public bool Validate(WaveWeight ww)
-        {
-            return ww != null && ww.Source == this && ww.InitializationTime == _initializationTime;
-        }
-
-        public LinkedList<Node> WaveFront { get => waveFront; }
-
-        private LinkedList<Node> waveFront = new LinkedList<Node>();
+        } 
+#endif
 
         /// <summary>
-        /// Добавление узла в упорядоченную очередь List
-        /// в порядке возрастания WaveWeight
+        /// Сопоставление волнового веса <paramref name="ww"/> с текущей волной
         /// </summary>
-        /// <param name="list"></param>
-        /// <param name="n"></param>
-        /// <param name="comparer"></param>
-        private void Enqueue(Node n)
-        {
-            LinkedListNode<Node> pos = waveFront.First;
-
-            while (pos != null)
-            {
-                // Нужна ли эта проверка, ибо она не гарантирует что n будет представлена в очереди в единственном экземпляре
-                if (Equals(n, pos.Value))
-                    return;
-
-                if (NodesWeightComparer.CompareNodesWeight(n, pos.Value) < 0)
-                {
-                    waveFront.AddBefore(pos, n);
-                    return;
-                }
-                pos = pos.Next;
-            }
-
-            waveFront.AddLast(n);
-        }
-
-        /// <summary>
-        /// Извлечение узла из упорядоченного списка
-        /// </summary>
+        /// <param name="ww"></param>
         /// <returns></returns>
-        private Node Dequeue()
+        internal bool Validate(WaveWeight ww)
         {
-            LinkedListNode<Node> n = waveFront.First;
-            waveFront.RemoveFirst();
-            return n.Value;
+            var source = WaveSources[currentSlotIndex];
+            return ww != null && source != null && ww.Source == this && source.InitTime > 0 && ww.InitTime == source.InitTime;
         }
 
         /// <summary>
-        /// Формирование волны из <paramref name="endNode"/> к <paramref name="startNode"/>
+        /// Формирование волны из <see cref="Target"/> к <paramref name="startNode"/>
         /// </summary>
         /// <param name="startNode"></param>
-        /// <param name="endNode"></param>
         /// <returns></returns>
-        public bool GenerateWave(Node startNode, Node endNode)
+        public bool GenerateWave(Node startNode)
         {
-            if (startNode is null || endNode is null)
+            if (Target is null)
+                throw new Exception($"Не задана целевая вершина {nameof(Target)} (используйте метод {nameof(WaveSource)}.{nameof(AttachTo)})");
+
+            if (startNode is null)
             {
 #if WAVE_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Некорректные исходные данные");
 #endif
                 return false;
             }
-
-            // Target не совпадает с endNode, тогда волновой фронт waveFront будет очищен, 
-            // а волна реинициализирована
-            Target = endNode;
 
             if (Validate(startNode.WaveWeight))
             {
@@ -132,19 +213,22 @@ namespace AStar.Search.Wave
 
             bool pathFound = false;
 
-            if (waveFront.Count == 0 || waveFront.First.Value.WaveWeight?.IsTargetTo(_target) != true)
+            var source = WaveSources[currentSlotIndex];
+#if WAVE_DEBUG_LOG
+            AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Используется источник #{currentSlotIndex}, имеющий параметры привязки:");
+            AStarLogger.WriteLine(LogType.Debug, $"\tTarget{source.Target}\tUsageNumber: {source.UsageNumber}\t{nameof(InitTime)}: {source.InitTime}");
+#endif
+
+            if (source.FrontCount == 0)
             {
 #if WAVE_DEBUG_LOG
-                AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Инициализируем новую волну из End{endNode}");
+                AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Инициализируем новую волну из End{source.Target}");
 #endif
                 // Помещаем в очередь обработки конечный узел
-                waveFront.Clear();
 #if processingQueue_SortedSet
                     processingQueue.Add(EndNode); 
 #else
-                _initializationTime = Environment.TickCount;
-                _target.WaveWeight = new WaveWeight(this, null);
-                Enqueue(_target);
+                source.Initialize();
 #endif
             }
 #if WAVE_DEBUG_LOG
@@ -152,8 +236,8 @@ namespace AStar.Search.Wave
             {
 #if DETAIL_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Продолжаем кэшированну волну");
-                AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Кэшированный фронт волны ({nameof(waveFront)})");
-                foreach (var node in waveFront)
+                AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Кэшированный фронт волны ({nameof(source.WaveFront)})");
+                foreach (var node in source.WaveFront)
                 {
                     AStarLogger.WriteLine(LogType.Debug, $"\t\t{node}\t|\t{node.WaveWeight}");
                 }
@@ -163,10 +247,10 @@ namespace AStar.Search.Wave
             }
 #endif
 
-            // Обсчитываем все узлы графа
-            while (waveFront.Count > 0)
+            // обсчитываем волну
+            while (source.FrontCount > 0)
             {
-                Node node = ProcessingFirst();
+                Node node = ProcessingFirst(source);
 
                 if (Equals(node, startNode))
                 {
@@ -175,10 +259,10 @@ namespace AStar.Search.Wave
 #if WAVE_DEBUG_LOG
                     AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Путь найден. Достигнута вершина Start{startNode} | {startNode.WaveWeight} ... Завершаем поиск");
 #if DETAIL_LOG
-                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Фронт волны (ProcessingQueue):");
-                    foreach (var n in waveFront)
+                    AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}: Фронт волны (WaveFront):");
+                    foreach (var n in source.WaveFront)
                     {
-                        AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSource)}.{nameof(GenerateWave)}:\t{n}\t|\t{n.WaveWeight}");
+                        AStarLogger.WriteLine(LogType.Debug, $"\t\t{n}\t|\t{n.WaveWeight}");
                     }
 #endif
 #endif
@@ -194,13 +278,13 @@ namespace AStar.Search.Wave
         }
 
         /// <summary>
-        /// Проверка первой вершины из очереди (фронта волны), 
+        /// Проверка первой вершины из очереди обработки (фронта волны), 
         /// просмотр её входящих ребер, присвоение "волновой оценки" вершине и 
         /// добавление в очередь обработки "входящих" вершин
         /// </summary>
-        private Node ProcessingFirst()
+        private Node ProcessingFirst(WaveSourceSlot source)
         {
-            Node node = Dequeue();
+            Node node = source.Dequeue();
 
             if (node != null)
             {
@@ -220,7 +304,7 @@ namespace AStar.Search.Wave
 #endif
                         double weight = node.WaveWeight.Weight + inArc.Length;
 
-                        bool inNodeTargetMatch = inArc.StartNode.WaveWeight != null && inArc.StartNode.WaveWeight.IsTargetTo(_target);
+                        bool inNodeTargetMatch = inArc.StartNode.WaveWeight != null && inArc.StartNode.WaveWeight.IsTargetTo(Target);
 #if DETAIL_LOG && WAVE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t", inNodeTargetMatch ? "MATCH " : "MISMATCH ", inArc.StartNode.WaveWeight));
                         //AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ":\t\tНовый волновой вес : ", weight.ToString("N2")));
@@ -238,7 +322,7 @@ namespace AStar.Search.Wave
                                 AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПомещаем в очередь обработки Node", inArc.StartNode));
 #endif
                                 // добавляем стартовую вершину ребра в очередь, для обработки
-                                Enqueue(inArc.StartNode);
+                                source.Enqueue(inArc.StartNode);
                             }
 #if DETAIL_LOG && WAVE_DEBUG_LOG
                             else
@@ -251,12 +335,12 @@ namespace AStar.Search.Wave
                         else
                         {
                             // присваиваем "волновой вес" стартовой вершине ребра
-                            inArc.StartNode.WaveWeight = new WaveWeight(this, inArc);
+                            inArc.StartNode.AttachTo(this).Arc = inArc;
 #if DETAIL_LOG && WAVE_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПрисваиваем волновую оценку ", inArc.StartNode.WaveWeight));
                             AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t\tПомещаем в очередь обработки Node", inArc.StartNode));
 #endif
-                            Enqueue(inArc.StartNode);
+                            source.Enqueue(inArc.StartNode);
                         }
                     }
                 }
@@ -265,111 +349,331 @@ namespace AStar.Search.Wave
             return node;
         }
 
+        /// <summary>
+        /// Удаление текущей волны
+        /// </summary>
         public void ClearWave()
         {
-            //TODO: Попробовать без ClearWave()
-            if (_graph != null)
+            WaveSources[currentSlotIndex]?.ClearWave();
+        }
+
+        public uint IncreaseUsage()
+        {
+            var source = WaveSources[currentSlotIndex];
+            return source is null ? 0 : ++source.UsageNumber;
+        }
+
+        /// <summary>
+        /// Идентификатор волны, связывающие кэш с вершиной-источником <see cref="Target"/>
+        /// </summary>
+        protected class WaveSourceSlot
+        {
+            public WaveSourceSlot(WaveSource s, Graph g, Node n)
             {
-                foreach (Node n in _graph.Nodes)
-                    n.WaveWeight = null;
-#if WAVE_DEBUG_LOG
-                AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSource)}.{nameof(ClearWave)}: {_graph.Nodes.Count} nodes processed");
+                _source = s;
+                _graph = g;
+                _target = n;
+                _initTime = 0;
+            }
+
+            public WaveSource Source  => _source;
+            private readonly WaveSource _source;
+
+            /// <summary>
+            /// Граф в котором производится поиск пути
+            /// </summary>
+            public Graph Graph => _graph;
+            Graph _graph;
+
+            /// <summary>
+            /// Вершина-источник волны
+            /// </summary>
+            public Node Target
+            {
+                get =>_target;
+                private set
+                {
+                    if(!Equals(value, _target) || !Validate(value.WaveWeight))
+                    {
+                        _initTime = Environment.TickCount;
+                        _target = value;
+                        _target.AttachTo(_source).Arc = null;
+                        _waveFront.Clear();
+                        _usageNumber = 0;
+                    }
+                }
+            }
+            Node _target;
+
+            /// <summary>
+            /// Количество использований источника волны,
+            /// то есть сколько раз производился поиск пути к вершине <see cref="Target"/>
+            /// </summary>
+            public uint UsageNumber
+            {
+                get => _initTime > 0 ? _usageNumber : 0;
+                set => _usageNumber = value;
+            }
+            private uint _usageNumber;
+
+            public bool IsTargetTo(Graph g, Node n)
+            {
+                return _graph != null && _graph == g && _target != null && _target.Equals(n) && _initTime > 0;
+            }
+
+            internal void AttachTo(WaveSource s, Graph g, Node n)
+            {
+                if (_source != s || _graph != g || _target != n)
+                {
+                    _initTime = Environment.TickCount;
+                    _usageNumber = 0;
+                    _waveFront.Clear();
+                    _graph = g;
+                    _target = n;
+                    _target.AttachTo(_source).Arc = null;
+                }
+            }
+#if false
+            internal void Detach()
+            {
+                _graph = null;
+                _target = null;
+                _usageNumber = 0;
+                _initTime = 0;
+                _waveFront.Clear();
+            } 
 #endif
-            }
-        }
-    }
 
-    /// <summary>
-    /// Волновой вес вершины
-    /// </summary>
-    public class WaveWeight : IComparable<WaveWeight>
-    {
-        private WaveWeight() { }
-        public WaveWeight(WaveSource s, Arc arc)
-        {
-            _source = s;
-            _initializationTime = _source.InitializationTime;
-            _arc = arc;
-            //_target = _source.Target;
+            public int InitTime => _initTime;
+            private int _initTime;
 
-            if (_arc != null)
+            public IEnumerable<Node> WaveFront => _waveFront;
+            private readonly LinkedList<Node> _waveFront = new LinkedList<Node>();
+
+            public int FrontCount => _waveFront.Count;
+
+            public void Initialize()
             {
-                var endWW = _arc.EndNode.WaveWeight;
-                if (endWW._source != _source)
-                    throw new ArgumentException($"Несоответствие источника волны на конце ребра {arc}");
-                _weight = endWW._weight + _arc.Length;
+                if (_target is null)
+                    throw new Exception($"{nameof(Target)} не может быть NULL. (используйте метод {nameof(WaveSourceSlot)}.{nameof(AttachTo)})");
+                _waveFront.Clear();
+                _initTime = Environment.TickCount;
+                _usageNumber = 1;
+                _target.AttachTo(_source).Arc = null;
+                Enqueue(_target);
             }
-            else _weight = 0;
-        }
 
-        public WaveSource Source { get => _source; }
-        WaveSource _source;
-
-        public double Weight { get => _weight;}
-        private double _weight = double.MaxValue;
-
-        public Arc Arc
-        {
-            get => _arc;
-            set
+            /// <summary>
+            /// Добавление вершины в очередь обработки (волновой фронт)
+            /// в порядке возрастания WaveWeight
+            /// </summary>
+            /// <param name="n"></param>
+            public void Enqueue(Node n)
             {
-                if (value is null)
-                    throw new ArgumentNullException(nameof(value));
-                _arc = value;
-                var endWW = _arc.EndNode.WaveWeight;
-                if (endWW._source != _source)
-                    throw new ArgumentException($"Несоответстви источника волны на конце ребра {value}");
-                _weight = endWW._weight + _arc.Length;
+                var pos =_waveFront.First;
 
+                while (pos != null)
+                {
+                    // Нужна ли эта проверка, ибо она не гарантирует что n будет представлена в очереди в единственном экземпляре
+                    if (Equals(n, pos.Value))
+                        return;
+
+                    if (NodesWeightComparer.CompareNodesWeight(n, pos.Value) < 0)
+                    {
+                        _waveFront.AddBefore(pos, n);
+                        return;
+                    }
+                    pos = pos.Next;
+                }
+
+                _waveFront.AddLast(n);
+            }
+
+            /// <summary>
+            /// Извлечение узла из очереди обработки (волнового фронта)
+            /// </summary>
+            /// <returns></returns>
+            public Node Dequeue()
+            {
+                var n = _waveFront.First;
+                _waveFront.RemoveFirst();
+                return n.Value;
+            }
+
+            public bool Validate(WaveWeight ww)
+            {
+                return ww != null && ww.Source == _source && ww.InitTime == _initTime;
+            }
+
+            public void ClearWave()
+            {
+#if false
+                //TODO: Попробовать без ClearWave()
+                if (graph != null)
+                {
+                    foreach (Node n in graph.Nodes)
+                        n.WaveWeight?.Reset();
+#if WAVE_DEBUG_LOG
+                    AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSource)}.{nameof(ClearWave)}: {graph.Nodes.Count} nodes processed");
+#endif
+                } 
+#endif
+                _waveFront.Clear();
+                _usageNumber = 0;
+                _initTime = 0;
+            }
+
+            public override string ToString()
+            {
+                return $"Target{_target}\tUsage: {_usageNumber}\tInitTime: {_initTime}";
             }
         }
-        private Arc _arc = null;
 
-        ///// <summary>
-        ///// Конечная вершина, к которой стремится путь (источник волны)
-        ///// </summary>
-        //public Node Target => _target;
-        //private readonly Node _target;
-
-        public bool IsTargetTo(Node node)
+        /// <summary>
+        /// Волновой вес вершины
+        /// </summary>
+        public class WaveWeight : IComparable<WaveWeight>
         {
-            return _source.IsTargetTo(node) && _source.InitializationTime == _initializationTime;
-        }
+            private WaveWeight(WaveSource s)
+            {
+                _source = s;
+
+                _weights = new double[WavesLimit];
+                for(int i = 0; i < WavesLimit; i++)
+                    _weights[i] = double.MaxValue;
+                _arcs = new Arc[WavesLimit];
+                _initTimes = new int[WavesLimit];
+                //_initTimes[_source.currentSlotIndex] = _source.InitTime;
+            }
+#if false
+            private WaveWeight(WaveSource s, Arc arc)
+            {
+                _source = s;
+
+                _initTimes = new int[WavesLimit];
+                _initTimes[_source.currentSlotIndex] = _source.InitTime;
+
+                _weights = new double[WavesLimit];
+                for (int i = 0; i < WavesLimit; i++)
+                    _weights[i] = double.MaxValue;
+
+                _arcs = new Arc[WavesLimit];
+                _arcs[_source.currentSlotIndex] = arc;
+
+                if (arc != null)
+                {
+                    var endWW = arc.EndNode.AttachTo(_source);
+                    if (endWW._source != _source)
+                        throw new ArgumentException($"Несоответствие источника волны на конце ребра {arc}");
+                    _weights[_source.currentSlotIndex] = endWW.Weight + _arcs.Length;
+                }
+                else _weights[_source.currentSlotIndex] = 0;
+            } 
+#endif
+
+            public static WaveWeight Make(WaveSource source)
+            {
+                return new WaveWeight(source);
+            }
+            /// <summary>
+            /// Источник волн
+            /// </summary>
+            public WaveSource Source => _source; 
+            private readonly WaveSource _source;
+
+            /// <summary>
+            /// Вес текущей волны
+            /// </summary>
+            public double Weight => _weights[_source.currentSlotIndex];
+            private readonly double[] _weights;
+
+            /// <summary>
+            /// Ребро по которому "пришла волна"
+            /// </summary>
+            public Arc Arc
+            {
+                get => _arcs[_source.currentSlotIndex];
+                set
+                {
+                    _arcs[_source.currentSlotIndex] = value;
+                    _initTimes[_source.currentSlotIndex] = _source.InitTime;
+                    if (value is null)
+                        _weights[_source.currentSlotIndex] = 0;
+                    else if (value.EndNode.WaveWeight is null)
+                        _weights[_source.currentSlotIndex] = double.MaxValue;
+                    else _weights[_source.currentSlotIndex] = value.EndNode.WaveWeight.Weight + _arcs.Length;
+                }
+            }
+            private readonly Arc[] _arcs = null;
+
+            /// <summary>
+            /// Сопоставление вершины с вершиной-источником волны
+            /// </summary>
+            /// <param name="node"></param>
+            /// <returns></returns>
+            public bool IsTargetTo(Node node)
+            {
+                return _source.IsTargetTo(node) && _source.InitTime == _initTimes[_source.currentSlotIndex];
+            }
+
+            public int InitTime  => _initTimes[_source.currentSlotIndex];
+            private readonly int[] _initTimes;
+
+            public override string ToString()
+            {
+                return string.Concat(!_source.Validate(this) ? "INVALID\t|\t" : string.Empty,
+                                     Weight.ToString("N2"), "\t|\t",
+                                     InitTime, "\t|\t", 
+                                     _arcs is null ? string.Empty : string.Concat(_arcs[_source.currentSlotIndex], " ==> "),
+                                     _source.Target);
+            }
+
+            public int CompareTo(WaveWeight other)
+            {
+                if (other is null)
+                    throw new ArgumentException("Недопустимое сравнение с NULL", nameof(other));
+                if (ReferenceEquals(_source, other._source))
+                {
+                    double w1 = Weight;
+                    double w2 = other.Weight;
+
+                    if (w1 < w2)
+                        return -1;
+                    if (w1 > w2)
+                        return +1;
+
+                    return 0;
+                }
+                throw new ArgumentException("Не совпадают источники волны");
+            }
+
+            public void Reset()
+            {
+                _arcs[_source.currentSlotIndex] = null;
+                _weights[_source.currentSlotIndex] = double.MaxValue;
+                _initTimes[_source.currentSlotIndex] = 0;
+            }
 
 #if false
-        public bool IsValid => _source.Validate(this); 
-#endif
-
-        public int InitializationTime  => _initializationTime; 
-        int _initializationTime = 0;
-
-        public override string ToString()
-        {
-            return string.Concat(!_source.Validate(this) ? "INVALID" : string.Empty,
-                                 _weight.ToString("N2"), '\t',
-                                 _arc is null ? string.Empty : _arc + " ==> ",
-                                 _source.Target);
-        }
-
-        public int CompareTo(WaveWeight other)
-        {
-            if (other is null)
-                throw new ArgumentException("Недопустимое сравнение с NULL", nameof(other));
-            if (ReferenceEquals(_source, other._source))
+            public WaveWeight AttachTo(WaveSource s)
             {
-                double w1 = _weight;
-                double w2 = _weight;
+                if (s != this.s)
+                {
+                    this.s = s;
+                    for (int i = 0; i < WavesLimit; i++)
+                    {
+                        _arcs[i] = null;
+                        _weights[i] = double.MaxValue;
+                        _initTimes[i] = 0;
+                    }
+                }
 
-                if (w1 < w2)
-                    return -1;
-                else if (w1 > w2)
-                    return +1;
-                //return Convert.ToInt32(w1 - w2); 
-                return 0;
-            }
-            else throw new ArgumentException("Не совпадают источники волны");
+                return this;
+            } 
+#endif
         }
     }
+
 
     /// <summary>
     /// Функтор сравнения вершин по их волновому весу
@@ -389,8 +693,8 @@ namespace AStar.Search.Wave
             if (n2 is null)
                 throw new ArgumentNullException(nameof(n2));
 
-            WaveWeight ww1 = n1.WaveWeight;
-            WaveWeight ww2 = n2.WaveWeight;
+            var ww1 = n1.WaveWeight;
+            var ww2 = n2.WaveWeight;
 
             return ww1.CompareTo(ww2);
         }
