@@ -42,9 +42,6 @@ namespace AStar.Search.AStar
 		public override bool SearchPath(Node StartNode, Node EndNode)
 		{
 			bool pathFound;
-#if SearchStatistics
-            SearchStatistics.Start(EndNode);
-#endif
             lock (_Graph)
 			{
 				Initialize(StartNode, EndNode);
@@ -53,9 +50,6 @@ namespace AStar.Search.AStar
 				}
 				pathFound = PathFound;
 			}
-#if SearchStatistics
-            SearchStatistics.Finish(SearchMode.AStar, EndNode, _LeafToGoBackUp?.NbArcsVisited ?? 0); 
-#endif
 
             return pathFound;
 		}

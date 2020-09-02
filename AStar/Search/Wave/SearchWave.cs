@@ -53,15 +53,11 @@ namespace AStar.Search.Wave
                 || !StartNode.Passable || !EndNode.Passable
                 || StartNode.Position.IsOrigin || EndNode.Position.IsOrigin)
             {
-
 #if DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Некорректные входные данные. Прерываем поиск");
 #endif
                 return false;
             }
-#if SearchStatistics
-            SearchStatistics.Start(EndNode); 
-#endif
             if (waveSource is null)
                 waveSource = new WaveSource();
 
@@ -99,9 +95,6 @@ namespace AStar.Search.Wave
                             track.CopyTo(foundedPath, 0);
 
                             waveSource.IncreaseUsage();
-#if SearchStatistics
-                        SearchStatistics.Finish(SearchMode.WaveRepeated, EndNode, path.Length); 
-#endif
                             return true;
                         }
 
@@ -198,10 +191,6 @@ namespace AStar.Search.Wave
                     waveSource.ClearWave();
                 }
             }
-
-#if SearchStatistics
-            SearchStatistics.Finish(SearchMode.WaveFirst, EndNode, path?.Length ?? 0);
-#endif
             return pathFound;
         }
 
