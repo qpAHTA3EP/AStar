@@ -318,7 +318,9 @@ namespace AStar.Search.Wave
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \tАнализируем ребро ", inArc));
 #endif
                         double weight = node.WaveWeight.Weight + inArc.Length;
-
+#if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
+                        AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \tВозможный волновой вес стартовой вершины ребра ", node.WaveWeight.Weight.ToString("N2"), " + ", inArc.Length.ToString("N2") , " = ", weight.ToString("N2")));
+#endif
                         bool inNodeTargetMatch = inArc.StartNode.WaveWeight != null && inArc.StartNode.WaveWeight.IsTargetTo(Target);
 #if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \t\t", inNodeTargetMatch ? "MATCH " : "MISMATCH ", inArc.StartNode.WaveWeight));
@@ -614,8 +616,14 @@ namespace AStar.Search.Wave
                     if (value is null)
                         _weights[_source.currentSlotIndex] = 0;
                     else if (value.EndNode.WaveWeight is null)
-                        _weights[_source.currentSlotIndex] = double.MaxValue;
-                    else _weights[_source.currentSlotIndex] = value.EndNode.WaveWeight.Weight + _arcs.Length;
+#if true
+                        _weights[_source.currentSlotIndex] = double.MaxValue; 
+#elif false
+                        _weights[_source.currentSlotIndex] = _arcs.Length;
+#else
+                        throw new Exception($"EndNode ребра не имеет волновой оценки");
+#endif
+                    else _weights[_source.currentSlotIndex] = value.EndNode.WaveWeight.Weight + _arcs[_source.currentSlotIndex].Length;
                 }
             }
             private readonly Arc[] _arcs = null;

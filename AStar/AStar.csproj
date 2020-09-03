@@ -11,15 +11,15 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <AssemblyVersion>1.20.0902.1156</AssemblyVersion>
+    <AssemblyVersion>2.20.0903.1110</AssemblyVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>References\x64\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;IEquatable; DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;IEquatable; NO_DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG; NO_DETAIL_LOG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
