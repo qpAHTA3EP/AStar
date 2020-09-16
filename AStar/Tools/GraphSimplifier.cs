@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace AStar
+namespace AStar.Tools
 {
     public partial class Instruments
     {
@@ -37,7 +37,7 @@ namespace AStar
                             }
                             else if(node.IncomingArcs.Count < 2)
                             {
-                                // вершина имеет вединственное исходящее ребро
+                                // вершина имеет единственное исходящее ребро
                                 // следовательно вершина является начальной для однонаправленного пути
                                 SimplifyOutgoingPath(node, ref outGraph, distance);
                             }

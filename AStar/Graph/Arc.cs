@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Xml.Serialization;
 
 namespace AStar
 {
@@ -8,11 +10,10 @@ namespace AStar
         : IEquatable<Arc> 
 #endif
     {
-        private Arc()
+        internal Arc()
         {
             Weight = 1.0;
             LengthUpdated = false;
-            Passable = true;
         }
 
         public Arc(Node start, Node end)
@@ -27,18 +28,11 @@ namespace AStar
             _StartNode = start;
             _EndNode = end;
 
-#if Arc_AddUnique
-        if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 &&
-            _EndNode.IncomingArcs.AddUnique(this) >= 0)
-                throw new ArgumentException("StartNode and EndNode are already linked by an Arc"); 
-#else
-            _StartNode.OutgoingArcs.Add(this);
-            _EndNode.IncomingArcs.Add(this);
-#endif
+            _StartNode.Add(this);
+            _EndNode.Add(this);
 
             Weight = 1;
             LengthUpdated = false;
-            Passable = true;
         }
 
         public Arc(Node start, Node end, double weight = 1)
@@ -53,27 +47,12 @@ namespace AStar
 			_StartNode = start;
 			_EndNode = end;
 
-#if Arc_AddUnique
-            if (_StartNode.OutgoingArcs.AddUnique(this) >= 0 &&
-                _EndNode.IncomingArcs.AddUnique(this) >= 0)
-                throw new ArgumentException("StartNode and EndNode are already linked by an Arc"); 
-#else
-            _StartNode.OutgoingArcs.Add(this);
-            _EndNode.IncomingArcs.Add(this);
-#endif
+            _StartNode.Add(this);
+            _EndNode.Add(this);
 
             Weight = weight;
 			LengthUpdated = false;
-			Passable = true;
 		}
-
-
-
-        public static Arc Make(Node start, Node end, double weight = 1)
-        {
-            Arc arc = Get(start, end) ?? new Arc{_StartNode = start, _EndNode = end, _Weight = weight };
-            return arc;
-        }
 
         /// <summary>
         /// Проверка наличия ребра, связывающего обе вершины
@@ -113,16 +92,12 @@ namespace AStar
 				if (EndNode != null && value.Equals(EndNode))
 					throw new ArgumentException("StartNode and EndNode must be different");
 
-                _StartNode?.OutgoingArcs.Remove(this);
-
+                _StartNode?.Remove(this);
                 _StartNode = value;
-#if Arc_AddUnique
-                _StartNode.OutgoingArcs.AddUnique(this); 
-#else
-                _StartNode.OutgoingArcs.Add(this);
-#endif
+                _StartNode.Add(this);
             }
         }
+		private Node _StartNode;
 
 		public Node EndNode
 		{
@@ -133,33 +108,49 @@ namespace AStar
 					throw new ArgumentNullException(nameof(EndNode));
 				if (StartNode != null && value.Equals(StartNode))
 					throw new ArgumentException("StartNode and EndNode must be different");
-                _EndNode?.IncomingArcs.Remove(this);
+                _EndNode?.Remove(this);
                 _EndNode = value;
-#if Arc_AddUnique
-                _EndNode.IncomingArcs.AddUnique(this);
-#else
-                _EndNode.IncomingArcs.Add(this); 
-#endif
+                _EndNode.Add(this); 
             }
         }
+		private Node _EndNode;
 
 		public double Weight
 		{
 			get => _Weight;
             set => _Weight = value;
         }
+		private double _Weight;
 
 		public bool Passable
-		{
-			get => _Passable;
+        {
+#if true
+            get => _StartNode!= null && _StartNode.Passable && _EndNode!= null && _EndNode.Passable;
+        }
+#else
+            get => _Passable;
             set => _Passable = value;
         }
+        private bool _Passable; 
+#endif
 
-		internal bool LengthUpdated
+#if true
+        /// <summary>
+        /// Флаг, при установки которого ребро помечается некорректным и подлежит удалению
+        /// </summary>
+        [XmlIgnore]
+        public bool Invalid
+        {
+            get => !_StartNode.Passable || !_EndNode.Passable;
+        }
+#endif
+
+        internal bool LengthUpdated
 		{
 			get => _LengthUpdated;
             set => _LengthUpdated = value;
         }
+		private bool _LengthUpdated;
 
 		public double Length
 		{
@@ -167,17 +158,18 @@ namespace AStar
 			{
                 if (LengthUpdated) return _Length;
                 _Length = CalculateLength();
-                LengthUpdated = true;
+                _LengthUpdated = true;
                 return _Length;
 			}
 		}
+		private double _Length;
 
 		protected virtual double CalculateLength()
 		{
 			return Point3D.DistanceBetween(_StartNode.Position, _EndNode.Position);
 		}
 
-		public virtual double Cost => Weight * Length;
+		public virtual double Cost => _Weight * Length;
 
         public override string ToString()
 		{
@@ -186,33 +178,21 @@ namespace AStar
 
 		public override bool Equals(object O)
 		{
-
-#if false
-            Arc arc = (Arc)O;
-            if (arc == null)
-            {
-                throw new ArgumentException(string.Concat(new object[]
-                {
-                    "Cannot compare type ",
-                    base.GetType(),
-                    " with type ",
-                    O.GetType(),
-                    " !"
-                }));
-            } 
-#else
+            if (ReferenceEquals(this, O))
+                return true;
             if (O is Arc arc
                 && arc.StartNode != null
                 && arc.EndNode != null)
-#endif
-                return _StartNode.Equals(arc._StartNode) && _EndNode.Equals(arc._EndNode);
+                return _StartNode != null && _StartNode.Equals(arc._StartNode) && _EndNode != null && _EndNode.Equals(arc._EndNode);
             return false;
         }
 
 #if IEquatable
         public bool Equals(Arc arc)
         {
-            return _StartNode.Equals(arc._StartNode) && _EndNode.Equals(arc._EndNode);
+            if (ReferenceEquals(this, arc))
+                return true;
+            return _StartNode != null && _StartNode.Equals(arc._StartNode) && _EndNode!= null && _EndNode.Equals(arc._EndNode);
         } 
 #endif
 
@@ -221,11 +201,5 @@ namespace AStar
 			return (int)Length;
 		}
 
-		private Node _StartNode;
-		private Node _EndNode;
-		private double _Weight;
-		private bool _Passable;
-		private double _Length;
-		private bool _LengthUpdated;
 	}
 }

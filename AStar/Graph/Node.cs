@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Xml.Serialization;
 using AStar.Search;
 using AStar.Search.Wave;
+using AStar.Tools;
 
 namespace AStar
 {
@@ -14,37 +16,92 @@ namespace AStar
         : IEquatable<Node> 
 #endif
     {
+        public Node()
+        {
+            _IncomingArcs = new ArrayList();
+            //incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_IncomingArcs);
+            _OutgoingArcs = new ArrayList();
+            //outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs);
+        }
         public Node(double PositionX, double PositionY, double PositionZ)
         {
             _Position = new Point3D(PositionX, PositionY, PositionZ);
 #if NodeTags
             this._tags = new Dictionary<object, object>();
 #endif
+            _IncomingArcs = new ArrayList();
+            //incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_IncomingArcs);
+            _OutgoingArcs = new ArrayList();
+            //outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs);
         }
 
-        public Node() { }
+#if true
+        public IList IncomingArcs => new ReadOnlyListWrapper<ArrayList>(_IncomingArcs);//incomingArcsWrapper.Rebase(_IncomingArcs);
+        //[NonSerialized]
+        //private ReadOnlyListWrapper<ArrayList> incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>();
+#else
+        public IEnumerable<Arc> IncomingArcs
+        {
+            get
+            {
+                foreach (Arc arc in _IncomingArcs)
+                    yield return arc;
+            }
+        } 
+#endif
+        private ArrayList _IncomingArcs;
 
-        public IList IncomingArcs => _IncomingArcs;
-        private ArrayList _IncomingArcs = new ArrayList();
+        public int IncomingArcsCount => _IncomingArcs.Count;
 
-        public IList OutgoingArcs => _OutgoingArcs;
-        private ArrayList _OutgoingArcs = new ArrayList();
+#if true
+        public IList OutgoingArcs => new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs); //outgoingArcsWrapper.Rebase(_OutgoingArcs);
+        //[NonSerialized]
+        //private ReadOnlyListWrapper<ArrayList> outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>();
+#else
+        public IEnumerable<Arc> OutgoingArcs
+        {
+            get
+            {
+                foreach (Arc arc in _OutgoingArcs)
+                    yield return arc;
+            }
+        } 
+#endif
+        private ArrayList _OutgoingArcs;
+
+        public int OutgoingArcsCount => _OutgoingArcs.Count;
 
         public bool Passable
         {
             get => _Passable;
             set
             {
+#if false
                 foreach (Arc arc in _IncomingArcs)
                     arc.Passable = value;
 
                 foreach (Arc arc2 in _OutgoingArcs)
-                    arc2.Passable = value;
+                    arc2.Passable = value; 
+#endif
 
                 _Passable = value;
             }
         }
         private bool _Passable = true;
+
+#if false
+        /// <summary>
+        /// Флаг, при установки которого вершина помечается некорректной и подлежит удалению
+        /// </summary>
+        [XmlIgnore]
+        public bool Invalid
+        {
+            get => _Invalid;
+            set => _Invalid = value;
+        }
+        [NonSerialized]
+        private bool _Invalid = false; 
+#endif
 
         #region Координаты
         public Point3D Position
@@ -53,6 +110,7 @@ namespace AStar
             set
             {
                 _Position = value ?? throw new ArgumentNullException();
+
                 foreach (Arc arc in _IncomingArcs)
                     arc.LengthUpdated = false;
 
@@ -68,17 +126,24 @@ namespace AStar
 
         public double Z => Position.Z;
 
-        public void ChangeXYZ(double PositionX, double PositionY, double PositionZ)
+        public void ChangeXYZ(double x, double y, double z)
         {
-            Position.X = PositionX;
-            Position.Y = PositionY;
-            Position.Z = PositionZ;
-        } 
+            _Position.X = x;
+            _Position.Y = y;
+            _Position.Z = z;
+
+            foreach (Arc arc in _IncomingArcs)
+                arc.LengthUpdated = false;
+
+            foreach (Arc arc2 in _OutgoingArcs)
+                arc2.LengthUpdated = false;
+        }
         #endregion
 
 
+#if Original_AStar
         public Node[] AccessibleNodes
-        {
+        {            
             get
             {
                 Node[] array = new Node[_OutgoingArcs.Count];
@@ -87,9 +152,20 @@ namespace AStar
                     array[num++] = arc.EndNode;
 
                 return array;
+            } 
+        }
+#else
+        public IEnumerable<Node> AccessibleNodes
+        {
+            get
+            {
+                foreach (Arc arc in _OutgoingArcs)
+                    yield return arc.EndNode;
             }
         }
+#endif
 
+#if Original_AStar
         public Node[] AccessingNodes
         {
             get
@@ -100,9 +176,19 @@ namespace AStar
                     array[num++] = arc.StartNode;
 
                 return array;
+            } 
+#else
+        public IEnumerable<Node> AccessingNodes
+        {
+            get
+            {
+                foreach (Arc arc in _IncomingArcs)
+                    yield return arc.StartNode;
             }
         }
+#endif
 
+#if Original_AStar
         public Node[] Molecule
         {
             get
@@ -119,22 +205,93 @@ namespace AStar
 
                 return array;
             }
+        } 
+#else
+        public IEnumerable<Node> Molecule
+        {
+            get
+            {
+                foreach (Arc arc in _OutgoingArcs)
+                    yield return arc.EndNode;
+
+                foreach (Arc arc in IncomingArcs)
+                    yield return arc.StartNode;
+
+                yield return this;
+            }
+        }
+#endif
+        /// <summary>
+        /// Поиска ребра, соединяющего с <paramref name="node"/>, а при его отсутствии - добавление нужного ребра
+        /// </summary>
+        /// <param name="node"></param>
+        /// <returns></returns>
+        public Arc ConnectTo(Node node, double weight = 1)
+        {
+            Arc arc = ArcGoingTo(node);
+            if(arc is null)
+                arc = new Arc() { StartNode = this, EndNode = node, Weight = weight };
+            return arc;
         }
 
+        /// <summary>
+        /// Добавление ребра
+        /// </summary>
+        /// <param name="arc"></param>
+        public bool Add(Arc arc)
+        {
+            if (arc.StartNode.Equals(this))
+            {
+                return _OutgoingArcs.AddUnique(arc) > 0;
+            }
+            else if (arc.EndNode.Equals(this))
+               return  _IncomingArcs.AddUnique(this) > 0;
+            return false;
+        }
+
+        /// <summary>
+        /// Удаление ребра
+        /// </summary>
+        /// <param name="arc"></param>
+        public void Remove(Arc arc)
+        {
+            if (arc.StartNode.Equals(this))
+                _IncomingArcs.Remove(arc);
+            else _OutgoingArcs.Remove(this);
+        }
+
+        /// <summary>
+        /// Изоляция вершины (удаление всех ребер)
+        /// </summary>
         public void Isolate()
         {
             UntieIncomingArcs();
             UntieOutgoingArcs();
         }
 
+        /// <summary>
+        /// Удаление всех входящих ребер
+        /// </summary>
         public void UntieIncomingArcs()
         {
             foreach (Arc arc in _IncomingArcs)
-                arc.StartNode.OutgoingArcs.Remove(arc);
+                arc.StartNode.Remove(arc);
 
             _IncomingArcs.Clear();
         }
 
+        /// <summary>
+        /// Удаление всех исходящих ребер
+        /// </summary>
+        public void UntieOutgoingArcs()
+        {
+            foreach (Arc arc in _OutgoingArcs)
+                arc.EndNode.Remove(arc);
+
+            _OutgoingArcs.Clear();
+        }
+
+#if false
         /// <summary>
         /// Удаление непроходимых ребер
         /// Метод является частью алгоритма сжатия графа
@@ -148,13 +305,14 @@ namespace AStar
                 if (_IncomingArcs[i] is Arc arc
                     && arc.Passable)
                 {
-                        _IncomingArcs[lastFreeElement] = arc;
-                        lastFreeElement++;
+                    _IncomingArcs[lastFreeElement] = arc;
+                    lastFreeElement++;
                 }
             }
             // удаление "ненужных" ячеек в конце массива
             if (lastFreeElement < _IncomingArcs.Count)
                 _IncomingArcs.RemoveRange(lastFreeElement, _IncomingArcs.Count - lastFreeElement);
+
             lastFreeElement = 0;
             for (int i = 0; i < _OutgoingArcs.Count; i++)
             {
@@ -167,35 +325,173 @@ namespace AStar
             }
             if (lastFreeElement < _OutgoingArcs.Count)
                 _OutgoingArcs.RemoveRange(lastFreeElement, _OutgoingArcs.Count - lastFreeElement);
+        } 
+#elif false
+        internal ArrayList RemoveUnpassableAndDublicateArcs()
+        {
+            ArrayList arcsToRemove = new ArrayList();
+            int lastFreeElement = 0;
+            // уплотнение массива
+            for (int i = 0; i < _IncomingArcs.Count; i++)
+            {
+                if (_IncomingArcs[i] is Arc arc)
+                {
+                    if (arc.Passable)
+                    {
+                        int dubleInd = -1;
+                        for (int j = 0; j < lastFreeElement; j++)
+                        {
+                            if (_IncomingArcs[j] is Arc correctArc
+                                && (ReferenceEquals(correctArc, arc) 
+                                    || correctArc.StartNode.Equals(arc.StartNode)))
+                            {
+                                dubleInd = j;
+                                break;
+                            }
+                        }
+                        if (dubleInd < 0)
+                        {
+                            _IncomingArcs[lastFreeElement] = arc;
+                            lastFreeElement++;
+                            continue;
+                        }
+                    }
+                    arcsToRemove.Add(arc);
+                }
+            }
+            // удаление "ненужных" ячеек в конце массива
+            if (lastFreeElement < _IncomingArcs.Count)
+                _IncomingArcs.RemoveRange(lastFreeElement, _IncomingArcs.Count - lastFreeElement);
+
+            lastFreeElement = 0;
+            for (int i = 0; i < _OutgoingArcs.Count; i++)
+            {
+                if (_OutgoingArcs[i] is Arc arc)
+                {
+                    if (arc.Passable)
+                    {
+                        int dubleInd = -1;
+                        for (int j = 0; j < lastFreeElement; j++)
+                        {
+                            if (_OutgoingArcs[j] is Arc correctArc
+                                && (ReferenceEquals(correctArc, arc)
+                                    || correctArc.EndNode.Equals(arc.StartNode)))
+                            {
+                                dubleInd = j;
+                                break;
+                            }
+                        }
+                        if (dubleInd < 0)
+                        {
+                            _OutgoingArcs[lastFreeElement] = arc;
+                            lastFreeElement++;
+                            continue;
+                        }
+                    }
+                    arcsToRemove.Add(arc);
+                }
+            }
+            if (lastFreeElement < _OutgoingArcs.Count)
+                _OutgoingArcs.RemoveRange(lastFreeElement, _OutgoingArcs.Count - lastFreeElement);
+
+            return arcsToRemove;
+        }
+#elif false
+        internal int RemoveDublicateArcs()
+        {
+            int removedArcNum = 0;
+            if (_Passable)
+            {
+                HashSet<Arc> arcSet = new HashSet<Arc>();
+                foreach (Arc arc in _IncomingArcs)
+                    if (arc.StartNode.Passable)
+                        arcSet.Add(arc);
+
+                if (arcSet.Count < _IncomingArcs.Count)
+                {
+                    int i = 0;
+                    int num = _IncomingArcs.Count - arcSet.Count;
+                    foreach (Arc arc in arcSet)
+                    {
+                        _IncomingArcs[i] = arc;
+                    }
+                    _IncomingArcs.RemoveRange(arcSet.Count, num);
+                    removedArcNum = num;
+                }
+
+                arcSet.Clear();
+                foreach (Arc arc in _OutgoingArcs)
+                    if (arc.EndNode.Passable)
+                        arcSet.Add(arc);
+
+                if (arcSet.Count < _OutgoingArcs.Count)
+                {
+                    int i = 0;
+                    int num = _OutgoingArcs.Count - arcSet.Count;
+                    foreach (Arc arc in arcSet)
+                    {
+                        _OutgoingArcs[i] = arc;
+                    }
+                    _OutgoingArcs.RemoveRange(arcSet.Count, num);
+                    removedArcNum += num;
+                }
+            }
+            return removedArcNum;
+        }
+#endif
+
+        /// <summary>
+        /// Удаление списка ребер
+        /// Метод является частью алгоритма сжатия графа
+        /// </summary>
+        internal void RemoveArcs(ArrayList ArcsToRemome)
+        {
+            int lastFreeElement = 0;
+            // уплотнение массива
+            for (int i = 0; i < _IncomingArcs.Count; i++)
+            {
+                if (!ArcsToRemome.Contains(_IncomingArcs[i]))
+                {
+                    _IncomingArcs[lastFreeElement] = _IncomingArcs[i];
+                    lastFreeElement++;
+                }
+            }
+            // удаление "ненужных" ячеек в конце массива
+            if (lastFreeElement < _IncomingArcs.Count)
+                _IncomingArcs.RemoveRange(lastFreeElement, _IncomingArcs.Count - lastFreeElement);
+
+            lastFreeElement = 0;
+            for (int i = 0; i < _OutgoingArcs.Count; i++)
+            {
+                if (!ArcsToRemome.Contains(_OutgoingArcs[i]))
+                {
+                    _OutgoingArcs[lastFreeElement] = _OutgoingArcs[i];
+                    lastFreeElement++;
+                }
+            }
+            if (lastFreeElement < _OutgoingArcs.Count)
+                _OutgoingArcs.RemoveRange(lastFreeElement, _OutgoingArcs.Count - lastFreeElement);
         }
 
-        public void UntieOutgoingArcs()
+        public Arc ArcGoingTo(Node node)
         {
-            foreach (Arc arc in _OutgoingArcs)
-                arc.EndNode.IncomingArcs.Remove(arc);
-
-            _OutgoingArcs.Clear();
-        }
-
-        public Arc ArcGoingTo(Node N)
-        {
-            if (N is null)
-                throw new ArgumentNullException(nameof(N));
+            if (node is null)
+                throw new ArgumentNullException(nameof(node));
 
             foreach (Arc arc in _OutgoingArcs)
-                if (Equals(arc.EndNode, N))
+                if (node.Equals(arc.EndNode))
                     return arc;
 
             return null;
         }
 
-        public Arc ArcComingFrom(Node N)
+        public Arc ArcComingFrom(Node node)
         {
-            if (N is null)
-                throw new ArgumentNullException(nameof(N));
+            if (node is null)
+                throw new ArgumentNullException(nameof(node));
 
             foreach (Arc arc in _IncomingArcs)
-                if (Equals(arc.StartNode, N))
+                if (Equals(arc.StartNode, node))
                     return arc;
 
             return null;
@@ -205,8 +501,8 @@ namespace AStar
         {
             foreach (Arc arc in _IncomingArcs)
                 arc.LengthUpdated = false;
-            foreach (Arc arc2 in _OutgoingArcs)
-                arc2.LengthUpdated = false;
+            foreach (Arc arc in _OutgoingArcs)
+                arc.LengthUpdated = false;
         }
 
         public override string ToString()
@@ -216,28 +512,17 @@ namespace AStar
 
         public override bool Equals(object O)
         {
-#if false
-            Node node = (Node)O;
-            if (node is null)
-            {
-                throw new ArgumentException(string.Concat(new object[]
-                {
-                    "Type ",
-                    O.GetType(),
-                    " cannot be compared with type ",
-                    base.GetType(),
-                    " !"
-                }));
-            } 
-#else
-            if(O is Node node)
-#endif
+            if (ReferenceEquals(this, O))
+                return true;
+            if (O is Node node)
                 return _Position.Equals(node._Position);
             return false;
         }
 #if IEquatable
         public bool Equals(Node n)
         {
+            if (ReferenceEquals(this, n))
+                return true;
             return n != null && _Position.Equals(n._Position);
         } 
 #endif
@@ -336,10 +621,10 @@ namespace AStar
                 return _tags;
             }
         }
-
         [NonSerialized]
         private Dictionary<object, object> _tags = new Dictionary<object, object>(); 
 #endif
+
         [XmlIgnore]
         public WaveSource.WaveWeight WaveWeight => _waveWeight;
         [NonSerialized]
@@ -349,7 +634,7 @@ namespace AStar
         {
             if (_waveWeight is null || _waveWeight.Source != source)
                 _waveWeight = WaveSource.WaveWeight.Make(source);
-
+            
             return _waveWeight;
         }
     }

@@ -182,13 +182,7 @@ namespace AStar
         public override int GetHashCode()
 		{
 			double num = 0.0;
-#if false
-            for (int i = 0; i < 3; i++)
-                num += this[i]; 
-#else
             num = _Coordinates[0] + _Coordinates[1] + _Coordinates[2];
-#endif
-
             return (int)num;
 		}
 

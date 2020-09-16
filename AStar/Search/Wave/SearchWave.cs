@@ -61,7 +61,7 @@ namespace AStar.Search.Wave
             if (waveSource is null)
                 waveSource = new WaveSource();
 
-            lock (graph.Locker)
+            lock (graph.SyncRoot)
             {
                 LinkedList<Node> track = null;
 

@@ -8,28 +8,15 @@ using AStar.Tools;
 
 namespace AStar
 {
-    /// <summary>
-    /// Изменение графа
-    /// </summary>
-    public enum NotifyReason
-    {
-        AddingNode,
-        RemovingNode,
-        RemovingNodes,
-        ChangingNode,
-        AddingArc,
-        RemovingArc,
-        RemovingArcs,
-        ChangingArc
-    }
 
-	[Serializable]
-	public class Graph
-	{
+
+    [Serializable]
+    public class Graph
+    {
         // TODO: Попробовать синхронизацию доступа через RWLocker
         // см https://habr.com/ru/post/459514/#ReaderWriterLockSlim
         [XmlIgnore]
-        public object Locker => this;
+        public object SyncRoot => this;//LN.SyncRoot
 #if false
         [NonSerialized]
         object _locker = new object();
@@ -39,6 +26,20 @@ namespace AStar
 #endif
 
 #if false
+        /// <summary>
+        /// Изменение графа
+        /// </summary>
+        public enum NotifyReason
+        {
+            AddingNode,
+            RemovingNode,
+            RemovingNodes,
+            ChangingNode,
+            AddingArc,
+            RemovingArc,
+            RemovingArcs,
+            ChangingArc
+        }        
         public delegate void NotifyNodeChanged(Node node, NotifyReason reason);
         public event NotifyNodeChanged onNodeChanged; 
         public delegate void NotifyNodesChanged(ArrayList nodes, NotifyReason reason);
@@ -48,40 +49,68 @@ namespace AStar
         public event NotifyArcChanged onArcChanged; 
         public delegate void NotifyArcsChanged(ArrayList arcs, NotifyReason reason);
         public event NotifyArcsChanged BeforeArcsChanged;
-#endif
         public delegate void NotifyGraphChanged(object obj, NotifyReason reason);
         public event NotifyGraphChanged BeforeGraphChanged;
+#endif
 
-        public Graph()
-		{
-			LN = new ArrayList();
-			LA = new ArrayList();
-        }
+        public Graph() { }
 
         public IList Nodes => LN;
+        private readonly ArrayList LN = new ArrayList();
 
-        public IList Arcs => LA;
+#if UseListOfArcs
+        public IList Arcs => emptyList;
+        //private readonly ArrayList LA = new ArrayList(); 
+#elif true
+        //Заглушка для Astral'a
+        [XmlIgnore]
+        public IList Arcs => throw new NotImplementedException();
+        [NonSerialized]
+        readonly ArrayList emptyLA = new ArrayList();
+#elif false
+        private readonly HashSet<Arc> arcSet = new HashSet<Arc>();
+#endif
+        public IEnumerable<Arc> EnumerateArcs
+        {
+            get
+            {
+                foreach(Node node in LN)
+                {
+                    foreach (Arc arc in node.OutgoingArcs)
+                        yield return arc;
+                }
+            }
+        }
+
 
         public void Clear()
 		{
-            lock (Locker)
+            lock (SyncRoot)
             {
+#if BeforeGraphChanged
                 BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingNodes);
+#endif
                 LN.Clear();
-                BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingArcs);
-                LA.Clear(); 
+#if BeforeGraphChanged
+                BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingArcs); 
+#endif
+#if UseListOfArcs
+                LA.Clear();  
+#endif
             }
-		}
+        }
 
-		public bool AddNode(Node NewNode)
+		public bool AddNode(Node node)
 		{
-			if (NewNode is null || LN.Contains(NewNode))
+			if (node is null || LN.Contains(node))
 				return false;
 
-            lock (Locker)
+            lock (SyncRoot)
             {
-                BeforeGraphChanged?.Invoke(new ArrayList() { NewNode }, NotifyReason.AddingNode);
-                LN.Add(NewNode); 
+#if BeforeGraphChanged
+                BeforeGraphChanged?.Invoke(new ArrayList() { NewNode }, NotifyReason.AddingNode); 
+#endif
+                LN.Add(node); 
             }
 			return true;
 		}
@@ -89,21 +118,23 @@ namespace AStar
 		public Node AddNode(float x, float y, float z)
 		{
 			Node node = new Node(x, y, z);
-            lock (Locker)
+            lock (SyncRoot)
             {
                 return AddNode(node) ? node : null;
             }
 		}
 
-        private void lockAddArc(Arc NewArc)
+#if UseListOfArcs
+        protected bool lockAddArc(Arc NewArc)
         {
-            BeforeGraphChanged?.Invoke(new ArrayList() { NewArc }, NotifyReason.AddingArc);
-
+#if BeforeGraphChanged
+            BeforeGraphChanged?.Invoke(new ArrayList() { NewArc }, NotifyReason.AddingArc); 
+#endif
             lock (Locker)
             {
-                LA.Add(NewArc);
+                return LA.Add(NewArc) > 0;
             }
-        }
+        } 
 
         public bool AddArc(Arc NewArc)
 		{
@@ -124,45 +155,63 @@ namespace AStar
             if(arc is null)
             {
                 arc = new Arc(StartNode, EndNode, Weight);
-                lock (Locker)
-                {
-                    return AddArc(arc) ? arc : null;
-                }
+                return lockAddArc(arc) ? arc : null;
             }
 
             return arc;
         }
-    
 
-		public void Add2Arcs(Node Node1, Node Node2, float Weight)
+        public void Add2Arcs(Node Node1, Node Node2, float Weight)
 		{
-			AddArc(Node1, Node2, Weight);
-			AddArc(Node2, Node1, Weight);
-		}
+            if (!LN.Contains(Node1) || !LN.Contains(Node2))
+                throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
 
-		public bool RemoveNode(Node NodeToRemove)
+            //AddArc(Node1, Node2, Weight);
+            Arc arc = Arc.Get(Node1, Node2);
+            if (arc is null)
+            {
+                arc = new Arc(Node1, Node2, Weight);
+                lockAddArc(arc);
+            }
+
+            //AddArc(Node2, Node1, Weight);
+            arc = Arc.Get(Node2, Node1);
+            if (arc is null)
+            {
+                arc = new Arc(Node2, Node1, Weight);
+                lockAddArc(arc);
+            }
+        }
+#else
+        public Arc AddArc(Node startNode, Node endNode, float weight)
+        {
+            return startNode.ConnectTo(endNode, weight);
+        }
+
+        public void Add2Arcs(Node Node1, Node Node2, float Weight)
+        {
+            if (!LN.Contains(Node1) || !LN.Contains(Node2))
+                throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
+
+            //AddArc(Node1, Node2, Weight);
+            Node1.ConnectTo(Node2, Weight);
+
+            //AddArc(Node2, Node1, Weight);
+            Node2.ConnectTo(Node1, Weight);
+        }
+#endif
+
+        public bool RemoveNode(Node node)
 		{
-			if (NodeToRemove is null)
+			if (node is null)
 				return false;
 
             try
 			{
-                lock (Locker)
+                lock (SyncRoot)
                 {
-                    BeforeGraphChanged?.Invoke(new ArrayList() { NodeToRemove.IncomingArcs }, NotifyReason.RemovingArcs);
-                    foreach (Arc arc in NodeToRemove.IncomingArcs)
-                    {
-                        arc.StartNode.OutgoingArcs.Remove(arc);
-                        LA.Remove(arc);
-                    }
-                    BeforeGraphChanged?.Invoke(new ArrayList() { NodeToRemove.OutgoingArcs }, NotifyReason.RemovingArcs);
-                    foreach (Arc arc in NodeToRemove.OutgoingArcs)
-                    {
-                        arc.EndNode.IncomingArcs.Remove(arc);
-                        LA.Remove(arc);
-                    }
-                    BeforeGraphChanged?.Invoke(new ArrayList() { NodeToRemove }, NotifyReason.RemovingNode);
-                    LN.Remove(NodeToRemove); 
+                    node.Isolate();
+                    LN.Remove(node);
                 }
 			}
 			catch
@@ -172,46 +221,41 @@ namespace AStar
 			return true;
 		}
 
-        public int RemoveUnpassableNodes()
+        /// <summary>
+        /// Удаление из графа непроходимых и некорректных вершин и ребер
+        /// </summary>
+        /// <returns></returns>
+        public int Compression()
         {
-            int num = LN.Count;
+            int deletedNodesNum = LN.Count;
             int lastFreeElement = 0;
 
-            lock (Locker)
+            lock (SyncRoot)
             {
+                List<Arc> arcsToRemove = new List<Arc>();
                 // Уплотнение списка вершин
                 for (int i = 0; i < LN.Count; i++)
                 {
-                    if (LN[i] is Node node
-                        && node.Passable)
-                    {
-                        node.RemoveUnpassableArcs();
-                        LN[lastFreeElement] = node;
-                        lastFreeElement++;
-                    }
+                    if (LN[i] is Node node)
+                        if (node.Passable)
+                        {
+#if Node_RemoveDublicateArcs
+                            // Работает некорректно
+                            node.RemoveDublicateArcs(); 
+#endif
+                            LN[lastFreeElement] = node;
+                            lastFreeElement++;
+                        }
+                        else node.Isolate();
                 }
                 // удаление "лишних" элементов в конце списка LN
                 if (lastFreeElement < LN.Count)
                     LN.RemoveRange(lastFreeElement, LN.Count - lastFreeElement);
-                num -= lastFreeElement;
-
-                // Уплотнение списка ребер
-                lastFreeElement = 0;
-                for (int i = 0; i < LA.Count; i++)
-                {
-                    if (LA[i] is Arc arc
-                        && arc.Passable)
-                    {
-                        LA[lastFreeElement] = arc;
-                        lastFreeElement++;
-                    }
-                }
-                if (lastFreeElement < LA.Count)
-                    LA.RemoveRange(lastFreeElement, LA.Count - lastFreeElement); 
+                deletedNodesNum -= lastFreeElement;
             }
 
             // Число удаленных вершин
-            return num;
+            return deletedNodesNum;
         }
 
 		public bool RemoveArc(Arc ArcToRemove)
@@ -221,20 +265,69 @@ namespace AStar
 
             try
 			{
-                lock (Locker)
+                lock (SyncRoot)
                 {
-                    BeforeGraphChanged?.Invoke(new ArrayList() { ArcToRemove }, NotifyReason.RemovingArc);
-                    LA.Remove(ArcToRemove);
-                    ArcToRemove.StartNode.OutgoingArcs.Remove(ArcToRemove);
-                    ArcToRemove.EndNode.IncomingArcs.Remove(ArcToRemove); 
+#if BeforeGraphChanged
+                    BeforeGraphChanged?.Invoke(ArcToRemove, NotifyReason.RemovingArc);
+#endif
+                    ArcToRemove.StartNode.Remove(ArcToRemove);
+                    ArcToRemove.EndNode.Remove(ArcToRemove);
+#if UseListOfArcs
+                    LA.Remove(ArcToRemove); 
+#endif
                 }
-			}
+            }
 			catch
 			{
 				return false;
 			}
 			return true;
 		}
+
+        public int RemoveArcs(ArrayList ArcsToRemome)
+        {
+            int deletedArcsNum = 0;
+            if(ArcsToRemome?.Count > 0)
+            {
+
+                lock (SyncRoot)
+                {
+#if UseListOfArcs
+                    int lastFreeElement = 0;
+                    // уплотнение массива LA
+                    for (int i = 0; i < LA.Count; i++)
+                    {
+                        if (LA[i] is Arc arc)
+                        {
+                            if (ArcsToRemome.Contains(arc))
+                            {
+                                arc.StartNode.RemoveArcs(ArcsToRemome);
+                                arc.EndNode.RemoveArcs(ArcsToRemome);
+                            }
+                            else
+                            {
+                                LA[lastFreeElement] = arc;
+                                lastFreeElement++;
+                            }
+                        }
+                    }
+
+                    // удаление "ненужных" ячеек в конце массива
+                    deletedArcsNum = LA.Count - lastFreeElement;
+                    if (deletedArcsNum > 0)
+                        LA.RemoveRange(lastFreeElement, deletedArcsNum);  
+#else
+                    foreach (Arc arc in ArcsToRemome)
+                    {
+                        arc.StartNode.RemoveArcs(ArcsToRemome);
+                        arc.EndNode.RemoveArcs(ArcsToRemome);
+                    }
+#endif
+                }
+            }
+
+            return deletedArcsNum;
+        }
 
 		public void BoundingBox(out double[] MinPoint, out double[] MaxPoint)
 		{
@@ -269,29 +362,28 @@ namespace AStar
 			return result;
 		}
 
-		public Arc ClosestArc(double PtX, double PtY, double PtZ, out double Distance, bool IgnorePassableProperty)
-		{
-			Arc result = null;
-			double closestArcDist = double.MaxValue;
-			Point3D point = new Point3D(PtX, PtY, PtZ);
-			foreach (Arc arc in LA)
-			{
-				if (!IgnorePassableProperty || arc.Passable)
-				{
-					Point3D pointProjection = Point3D.ProjectOnLine(point, arc.StartNode.Position, arc.EndNode.Position);
-					double dist = Point3D.DistanceBetween(point, pointProjection);
-					if (closestArcDist > dist)
-					{
-						closestArcDist = dist;
-						result = arc;
-					}
-				}
-			}
-			Distance = closestArcDist;
-			return result;
-		}
-
-        private readonly ArrayList LN;
-		private readonly ArrayList LA;
-	}
+#if UseListOfArcs
+        public Arc ClosestArc(double PtX, double PtY, double PtZ, out double Distance, bool IgnorePassableProperty)
+        {
+            Arc result = null;
+            double closestArcDist = double.MaxValue;
+            Point3D point = new Point3D(PtX, PtY, PtZ);
+            foreach (Arc arc in LA)
+            {
+                if (!IgnorePassableProperty || arc.Passable)
+                {
+                    Point3D pointProjection = Point3D.ProjectOnLine(point, arc.StartNode.Position, arc.EndNode.Position);
+                    double dist = Point3D.DistanceBetween(point, pointProjection);
+                    if (closestArcDist > dist)
+                    {
+                        closestArcDist = dist;
+                        result = arc;
+                    }
+                }
+            }
+            Distance = closestArcDist;
+            return result;
+        } 
+#endif
+    }
 }
