@@ -79,6 +79,14 @@ namespace AStar
                     }
                     LogCache.AppendLine(Text);
                 }
+                catch(ThreadInterruptedException)
+                {
+                    throw;
+                }
+                catch (ThreadAbortException)
+                {
+                    throw;
+                }
                 catch { }
             }
         }
@@ -96,6 +104,14 @@ namespace AStar
                             File.AppendAllText(LogFilePath, LogCache.ToString());
                             LogCache.Clear();
                         }
+                    }
+                    catch (ThreadInterruptedException)
+                    {
+                        throw;
+                    }
+                    catch (ThreadAbortException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {

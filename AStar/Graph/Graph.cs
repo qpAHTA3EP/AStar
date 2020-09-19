@@ -59,16 +59,12 @@ namespace AStar
         private readonly ArrayList LN = new ArrayList();
 
 #if UseListOfArcs
-        public IList Arcs => emptyList;
-        //private readonly ArrayList LA = new ArrayList(); 
+        public IList Arcs => LA;
+        private readonly ArrayList LA = new ArrayList(); 
 #elif true
         //Заглушка для Astral'a
         [XmlIgnore]
-        public IList Arcs => throw new NotImplementedException();
-        [NonSerialized]
-        readonly ArrayList emptyLA = new ArrayList();
-#elif false
-        private readonly HashSet<Arc> arcSet = new HashSet<Arc>();
+        public IList Arcs => new EnumerableAsReadOnlyListWrapper<IEnumerable<Arc>>(EnumerateArcs);
 #endif
         public IEnumerable<Arc> EnumerateArcs
         {
@@ -206,18 +202,11 @@ namespace AStar
 			if (node is null)
 				return false;
 
-            try
-			{
-                lock (SyncRoot)
-                {
-                    node.Isolate();
-                    LN.Remove(node);
-                }
-			}
-			catch
-			{
-				return false;
-			}
+            lock (SyncRoot)
+            {
+                node.Isolate();
+                LN.Remove(node);
+            }
 			return true;
 		}
 
@@ -263,24 +252,18 @@ namespace AStar
 			if (ArcToRemove is null)
 				return false;
 
-            try
-			{
-                lock (SyncRoot)
-                {
+
+            lock (SyncRoot)
+            {
 #if BeforeGraphChanged
-                    BeforeGraphChanged?.Invoke(ArcToRemove, NotifyReason.RemovingArc);
+                BeforeGraphChanged?.Invoke(ArcToRemove, NotifyReason.RemovingArc);
 #endif
-                    ArcToRemove.StartNode.Remove(ArcToRemove);
-                    ArcToRemove.EndNode.Remove(ArcToRemove);
+                ArcToRemove.StartNode.Remove(ArcToRemove);
+                ArcToRemove.EndNode.Remove(ArcToRemove);
 #if UseListOfArcs
-                    LA.Remove(ArcToRemove); 
+                LA.Remove(ArcToRemove); 
 #endif
-                }
             }
-			catch
-			{
-				return false;
-			}
 			return true;
 		}
 

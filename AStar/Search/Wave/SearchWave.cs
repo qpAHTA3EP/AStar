@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using static AStar.Search.Wave.WaveSource;
 
 namespace AStar.Search.Wave
@@ -106,19 +107,31 @@ namespace AStar.Search.Wave
 #if WAVESEARCH_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Путь в кэше не найден (или некорректен). Стираем волну");
 #endif
-                        waveSource.ClearWave();  
+                        waveSource.ClearWave();
+                    }
+                    catch (ThreadInterruptedException e)
+                    {
+                        AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+                        throw;
+                    }
+                    catch (ThreadAbortException e)
+                    {
+                        AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+                        throw;
                     }
 #if DEBUG || WAVESEARCH_DEBUG_LOG
                     catch (Exception e)
                     {
-                        AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e.Message}'", true);
+                        AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+#if false
                         AStarLogger.WriteLine(LogType.Error, e.StackTrace, true);
                         Exception innExc = e.InnerException;
                         while (innExc != null)
                         {
                             AStarLogger.WriteLine(LogType.Error, innExc.Message, true);
                             innExc = innExc.InnerException;
-                        }
+                        } 
+#endif
 #else
                     catch 
                     {
@@ -176,17 +189,29 @@ namespace AStar.Search.Wave
                     }
 #endif
                 }
+                catch (ThreadInterruptedException e)
+                {
+                    AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+                    throw;
+                }
+                catch (ThreadAbortException e)
+                {
+                    AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+                    throw;
+                }
 #if DEBUG || WAVESEARCH_DEBUG_LOG
                 catch (Exception e)
                 {
-                    AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e.Message}'", true);
+                    AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+#if false
                     AStarLogger.WriteLine(LogType.Error, e.StackTrace, true);
                     Exception innExc = e.InnerException;
                     while (innExc != null)
                     {
                         AStarLogger.WriteLine(LogType.Error, innExc.Message, true);
                         innExc = innExc.InnerException;
-                    }
+                    } 
+#endif
 #else
                 catch
                 {

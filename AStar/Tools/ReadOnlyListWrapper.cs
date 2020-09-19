@@ -6,19 +6,19 @@ using System.Text;
 
 namespace AStar.Tools
 {
-    public partial class ReadOnlyListWrapper<ListT> where ListT : IList { }
+    public partial class ReadOnlyListWrapper<TList> where TList : IList { }
 
-    public partial class ReadOnlyListWrapper<ListT> : ReadOnlyCollectionBase, IList
+    public partial class ReadOnlyListWrapper<TList> : ReadOnlyCollectionBase, IList
     {
-        private ListT list;
+        private TList list;
         public ReadOnlyListWrapper(){ }
 
-        public ReadOnlyListWrapper(ListT list)
+        public ReadOnlyListWrapper(TList list)
         {
             this.list = list;
         }
 
-        internal ReadOnlyListWrapper<ListT> Rebase(ListT list)
+        internal ReadOnlyListWrapper<TList> Rebase(TList list)
         {
             this.list = list;
             return this;

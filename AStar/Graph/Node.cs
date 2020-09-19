@@ -245,7 +245,7 @@ namespace AStar
                 return _OutgoingArcs.AddUnique(arc) > 0;
             }
             else if (arc.EndNode.Equals(this))
-               return  _IncomingArcs.AddUnique(this) > 0;
+               return  _IncomingArcs.AddUnique(arc) > 0;
             return false;
         }
 

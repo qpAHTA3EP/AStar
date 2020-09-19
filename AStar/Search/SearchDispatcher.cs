@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using AStar.Search;
 using AStar.Search.AStar;
 using AStar.Search.Wave;
@@ -60,7 +61,7 @@ namespace AStar
 #elif DEBUG
                     sb.AppendLine($"WaveSearch: Start pathfinding Start{StartNode} ==> End{EndNode}");
                     sb.AppendLine($"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
-                    sw.Start(); 
+                    sw.Start();
 #endif
                     if (searcher.SearchPath(StartNode, EndNode))
                     {
@@ -100,6 +101,16 @@ namespace AStar
                     sb.AppendLine($"WaveSearch: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
 #endif
                 }
+                catch (ThreadInterruptedException e)
+                {
+                    AStarLogger.WriteLine(LogType.Error, $"{nameof(AStar)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+                    throw;
+                }
+                catch (ThreadAbortException e)
+                {
+                    AStarLogger.WriteLine(LogType.Error, $"{nameof(AStar)}.{nameof(SearchPath)}: Перехвачено исключение '{e}'", true);
+                    throw;
+                }
 #if DEBUG_LOG
                 catch (Exception e)
                 {
@@ -125,15 +136,17 @@ namespace AStar
                 catch (Exception e)
                 {
                     sw.Stop();
-                    sb.AppendLine($"WaveSearch EXCEPTION: {e.Message}");
+                    sb.AppendLine($"WaveSearch EXCEPTION: {e}");
                     sb.AppendLine($"{nameof(WaveSearch)}: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
+#if false
                     sb.AppendLine(e.StackTrace);
                     Exception innExc = e.InnerException;
                     while (innExc != null)
                     {
                         sb.AppendLine($"\t{innExc.Message}");
                         innExc = innExc.InnerException;
-                    }
+                    } 
+#endif
                     sb.AppendLine();
 #if PRINT_GRAPH
                     sb.AppendLine("Graph nodes:");
