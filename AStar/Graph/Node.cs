@@ -11,17 +11,12 @@ using AStar.Tools;
 namespace AStar
 {
     [Serializable]
-    public class Node
-#if IEquatable
-        : IEquatable<Node> 
-#endif
+    public class Node : IEquatable<Node> 
     {
         public Node()
         {
             _IncomingArcs = new ArrayList();
-            //incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_IncomingArcs);
             _OutgoingArcs = new ArrayList();
-            //outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs);
         }
         public Node(double PositionX, double PositionY, double PositionZ)
         {
@@ -30,15 +25,13 @@ namespace AStar
             this._tags = new Dictionary<object, object>();
 #endif
             _IncomingArcs = new ArrayList();
-            //incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_IncomingArcs);
             _OutgoingArcs = new ArrayList();
-            //outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs);
         }
 
 #if true
-        public IList IncomingArcs => new ReadOnlyListWrapper<ArrayList>(_IncomingArcs);//incomingArcsWrapper.Rebase(_IncomingArcs);
-        //[NonSerialized]
-        //private ReadOnlyListWrapper<ArrayList> incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>();
+        public IList IncomingArcs => _incomingArcsWrapper ?? (_incomingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_IncomingArcs));
+        [NonSerialized]
+        ReadOnlyListWrapper<ArrayList> _incomingArcsWrapper;
 #else
         public IEnumerable<Arc> IncomingArcs
         {
@@ -54,9 +47,9 @@ namespace AStar
         public int IncomingArcsCount => _IncomingArcs.Count;
 
 #if true
-        public IList OutgoingArcs => new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs); //outgoingArcsWrapper.Rebase(_OutgoingArcs);
-        //[NonSerialized]
-        //private ReadOnlyListWrapper<ArrayList> outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>();
+        public IList OutgoingArcs => _outgoingArcsWrapper ?? (_outgoingArcsWrapper = new ReadOnlyListWrapper<ArrayList>(_OutgoingArcs));
+        [NonSerialized]
+        ReadOnlyListWrapper<ArrayList> _outgoingArcsWrapper;
 #else
         public IEnumerable<Arc> OutgoingArcs
         {
@@ -89,19 +82,6 @@ namespace AStar
         }
         private bool _Passable = true;
 
-#if false
-        /// <summary>
-        /// Флаг, при установки которого вершина помечается некорректной и подлежит удалению
-        /// </summary>
-        [XmlIgnore]
-        public bool Invalid
-        {
-            get => _Invalid;
-            set => _Invalid = value;
-        }
-        [NonSerialized]
-        private bool _Invalid = false; 
-#endif
 
         #region Координаты
         public Point3D Position
@@ -131,6 +111,18 @@ namespace AStar
             _Position.X = x;
             _Position.Y = y;
             _Position.Z = z;
+
+            foreach (Arc arc in _IncomingArcs)
+                arc.LengthUpdated = false;
+
+            foreach (Arc arc2 in _OutgoingArcs)
+                arc2.LengthUpdated = false;
+        }
+        public void Move(double dx, double dy, double dz)
+        {
+            _Position.X += dx;
+            _Position.Y += dy;
+            _Position.Z += dz;
 
             foreach (Arc arc in _IncomingArcs)
                 arc.LengthUpdated = false;
@@ -212,10 +204,12 @@ namespace AStar
             get
             {
                 foreach (Arc arc in _OutgoingArcs)
-                    yield return arc.EndNode;
+                    if (arc.Passable)
+                        yield return arc.EndNode;
 
                 foreach (Arc arc in IncomingArcs)
-                    yield return arc.StartNode;
+                    if(arc.Passable)
+                        yield return arc.StartNode;
 
                 yield return this;
             }
@@ -224,35 +218,33 @@ namespace AStar
         /// <summary>
         /// Поиска ребра, соединяющего с <paramref name="node"/>, а при его отсутствии - добавление нужного ребра
         /// </summary>
-        /// <param name="node"></param>
-        /// <returns></returns>
         public Arc ConnectTo(Node node, double weight = 1)
         {
             Arc arc = ArcGoingTo(node);
-            if(arc is null)
+            if (arc is null)
+            {
                 arc = new Arc() { StartNode = this, EndNode = node, Weight = weight };
+                _OutgoingArcs.Add(arc);
+            }
+            else arc.Disabled = false;
             return arc;
         }
 
         /// <summary>
-        /// Добавление ребра
+        /// Добавление ребра <paramref name="arc"/>
         /// </summary>
-        /// <param name="arc"></param>
         public bool Add(Arc arc)
         {
             if (arc.StartNode.Equals(this))
-            {
                 return _OutgoingArcs.AddUnique(arc) > 0;
-            }
             else if (arc.EndNode.Equals(this))
                return  _IncomingArcs.AddUnique(arc) > 0;
             return false;
         }
 
         /// <summary>
-        /// Удаление ребра
+        /// Удаление ребра <paramref name="arc"/>
         /// </summary>
-        /// <param name="arc"></param>
         public void Remove(Arc arc)
         {
             if (arc.StartNode.Equals(this))
@@ -291,7 +283,6 @@ namespace AStar
             _OutgoingArcs.Clear();
         }
 
-#if false
         /// <summary>
         /// Удаление непроходимых ребер
         /// Метод является частью алгоритма сжатия графа
@@ -326,131 +317,18 @@ namespace AStar
             if (lastFreeElement < _OutgoingArcs.Count)
                 _OutgoingArcs.RemoveRange(lastFreeElement, _OutgoingArcs.Count - lastFreeElement);
         } 
-#elif false
-        internal ArrayList RemoveUnpassableAndDublicateArcs()
-        {
-            ArrayList arcsToRemove = new ArrayList();
-            int lastFreeElement = 0;
-            // уплотнение массива
-            for (int i = 0; i < _IncomingArcs.Count; i++)
-            {
-                if (_IncomingArcs[i] is Arc arc)
-                {
-                    if (arc.Passable)
-                    {
-                        int dubleInd = -1;
-                        for (int j = 0; j < lastFreeElement; j++)
-                        {
-                            if (_IncomingArcs[j] is Arc correctArc
-                                && (ReferenceEquals(correctArc, arc) 
-                                    || correctArc.StartNode.Equals(arc.StartNode)))
-                            {
-                                dubleInd = j;
-                                break;
-                            }
-                        }
-                        if (dubleInd < 0)
-                        {
-                            _IncomingArcs[lastFreeElement] = arc;
-                            lastFreeElement++;
-                            continue;
-                        }
-                    }
-                    arcsToRemove.Add(arc);
-                }
-            }
-            // удаление "ненужных" ячеек в конце массива
-            if (lastFreeElement < _IncomingArcs.Count)
-                _IncomingArcs.RemoveRange(lastFreeElement, _IncomingArcs.Count - lastFreeElement);
-
-            lastFreeElement = 0;
-            for (int i = 0; i < _OutgoingArcs.Count; i++)
-            {
-                if (_OutgoingArcs[i] is Arc arc)
-                {
-                    if (arc.Passable)
-                    {
-                        int dubleInd = -1;
-                        for (int j = 0; j < lastFreeElement; j++)
-                        {
-                            if (_OutgoingArcs[j] is Arc correctArc
-                                && (ReferenceEquals(correctArc, arc)
-                                    || correctArc.EndNode.Equals(arc.StartNode)))
-                            {
-                                dubleInd = j;
-                                break;
-                            }
-                        }
-                        if (dubleInd < 0)
-                        {
-                            _OutgoingArcs[lastFreeElement] = arc;
-                            lastFreeElement++;
-                            continue;
-                        }
-                    }
-                    arcsToRemove.Add(arc);
-                }
-            }
-            if (lastFreeElement < _OutgoingArcs.Count)
-                _OutgoingArcs.RemoveRange(lastFreeElement, _OutgoingArcs.Count - lastFreeElement);
-
-            return arcsToRemove;
-        }
-#elif false
-        internal int RemoveDublicateArcs()
-        {
-            int removedArcNum = 0;
-            if (_Passable)
-            {
-                HashSet<Arc> arcSet = new HashSet<Arc>();
-                foreach (Arc arc in _IncomingArcs)
-                    if (arc.StartNode.Passable)
-                        arcSet.Add(arc);
-
-                if (arcSet.Count < _IncomingArcs.Count)
-                {
-                    int i = 0;
-                    int num = _IncomingArcs.Count - arcSet.Count;
-                    foreach (Arc arc in arcSet)
-                    {
-                        _IncomingArcs[i] = arc;
-                    }
-                    _IncomingArcs.RemoveRange(arcSet.Count, num);
-                    removedArcNum = num;
-                }
-
-                arcSet.Clear();
-                foreach (Arc arc in _OutgoingArcs)
-                    if (arc.EndNode.Passable)
-                        arcSet.Add(arc);
-
-                if (arcSet.Count < _OutgoingArcs.Count)
-                {
-                    int i = 0;
-                    int num = _OutgoingArcs.Count - arcSet.Count;
-                    foreach (Arc arc in arcSet)
-                    {
-                        _OutgoingArcs[i] = arc;
-                    }
-                    _OutgoingArcs.RemoveRange(arcSet.Count, num);
-                    removedArcNum += num;
-                }
-            }
-            return removedArcNum;
-        }
-#endif
 
         /// <summary>
-        /// Удаление списка ребер
+        /// Удаление списка ребер <paramref name="arcsToRemome"/>
         /// Метод является частью алгоритма сжатия графа
         /// </summary>
-        internal void RemoveArcs(ArrayList ArcsToRemome)
+        internal void RemoveArcs(ArrayList arcsToRemome)
         {
             int lastFreeElement = 0;
             // уплотнение массива
             for (int i = 0; i < _IncomingArcs.Count; i++)
             {
-                if (!ArcsToRemome.Contains(_IncomingArcs[i]))
+                if (!arcsToRemome.Contains(_IncomingArcs[i]))
                 {
                     _IncomingArcs[lastFreeElement] = _IncomingArcs[i];
                     lastFreeElement++;
@@ -463,7 +341,7 @@ namespace AStar
             lastFreeElement = 0;
             for (int i = 0; i < _OutgoingArcs.Count; i++)
             {
-                if (!ArcsToRemome.Contains(_OutgoingArcs[i]))
+                if (!arcsToRemome.Contains(_OutgoingArcs[i]))
                 {
                     _OutgoingArcs[lastFreeElement] = _OutgoingArcs[i];
                     lastFreeElement++;
@@ -473,6 +351,9 @@ namespace AStar
                 _OutgoingArcs.RemoveRange(lastFreeElement, _OutgoingArcs.Count - lastFreeElement);
         }
 
+        /// <summary>
+        /// Поиск исходящего ребра к вершине <paramref name="node"/>
+        /// </summary>
         public Arc ArcGoingTo(Node node)
         {
             if (node is null)
@@ -481,10 +362,13 @@ namespace AStar
             foreach (Arc arc in _OutgoingArcs)
                 if (node.Equals(arc.EndNode))
                     return arc;
-
+            
             return null;
         }
 
+        /// <summary>
+        /// Поиск входящего ребра из вершины <paramref name="node"/>
+        /// </summary>
         public Arc ArcComingFrom(Node node)
         {
             if (node is null)
@@ -497,6 +381,10 @@ namespace AStar
             return null;
         }
 
+        /// <summary>
+        /// Сброс предварительно рассчитанной длины всем связанным ребрам
+        /// При считывании длина ребра будет вычислена заново
+        /// </summary>
         private void Invalidate()
         {
             foreach (Arc arc in _IncomingArcs)
@@ -518,15 +406,16 @@ namespace AStar
                 return _Position.Equals(node._Position);
             return false;
         }
-#if IEquatable
         public bool Equals(Node n)
         {
             if (ReferenceEquals(this, n))
                 return true;
             return n != null && _Position.Equals(n._Position);
         } 
-#endif
 
+        /// <summary>
+        /// Создание копии вершины (без ребер)
+        /// </summary>
         public object Clone()
         {
             return new Node(X, Y, Z)
@@ -540,11 +429,17 @@ namespace AStar
             return _Position.GetHashCode();
         }
 
+        /// <summary>
+        /// Вычисление Евклидового расстояния между вершинами <paramref name="N1"/> и <paramref name="N2"/>
+        /// </summary>
         public static double EuclideanDistance(Node N1, Node N2)
         {
             return Math.Sqrt(SquareEuclideanDistance(N1, N2));
         }
 
+        /// <summary>
+        /// Вычисление квадрата Евклидового расстояния между вершинами <paramref name="N1"/> и <paramref name="N2"/>
+        /// </summary>
         public static double SquareEuclideanDistance(Node N1, Node N2)
         {
             if (N1 is null || N2 is null)
@@ -556,6 +451,10 @@ namespace AStar
             return num * num + num2 * num2 + num3 * num3;
         }
 
+        /// <summary>
+        /// Вычисление Манхетоннового расстояния между вершинами <paramref name="N1"/> и <paramref name="N2"/>
+        /// Сумма расстояний между точками вдоль осей Ox, Oy, Oz
+        /// </summary>
         public static double ManhattanDistance(Node N1, Node N2)
         {
             if (N1 is null || N2 is null)
@@ -578,32 +477,36 @@ namespace AStar
             return Math.Max(val, Math.Max(val2, val3));
         }
 
-        public static void BoundingBox(IList NodesGroup, out double[] MinPoint, out double[] MaxPoint)
+        /// <summary>
+        /// Вычисление параллелипипеда, вмещающего все вершины <paramref name="nodesGroup"/>
+        /// Парраллелипипед ограничен задается точками <paramref name="minPoint"/> и <paramref name="maxPoint"/>
+        /// </summary>
+        public static void BoundingBox(IList nodesGroup, out double[] minPoint, out double[] maxPoint)
         {
-            if (NodesGroup.Count == 0)
+            if (nodesGroup.Count == 0)
                 throw new ArgumentException("The list of nodes is empty.");
 
-            if (!(NodesGroup[0] is Node))
+            if (!(nodesGroup[0] is Node))
                 throw new ArgumentException("The list must only contain elements of type Node.");
 
-            MinPoint = new double[3] {double.MaxValue, double.MaxValue, double.MaxValue};
-            MaxPoint = new double[3] {double.MinValue, double.MinValue, double.MinValue};
+            minPoint = new double[3] {double.MaxValue, double.MaxValue, double.MaxValue};
+            maxPoint = new double[3] {double.MinValue, double.MinValue, double.MinValue};
             
-            foreach (Node node2 in NodesGroup)
+            foreach (Node node2 in nodesGroup)
             {
-                if (MinPoint[0] > node2._Position[0])
-                    MinPoint[0] = node2._Position[0];
-                if (MinPoint[1] > node2._Position[1])
-                    MinPoint[1] = node2._Position[1];
-                if (MinPoint[2] > node2._Position[2])
-                    MinPoint[2] = node2._Position[2];
+                if (minPoint[0] > node2._Position[0])
+                    minPoint[0] = node2._Position[0];
+                if (minPoint[1] > node2._Position[1])
+                    minPoint[1] = node2._Position[1];
+                if (minPoint[2] > node2._Position[2])
+                    minPoint[2] = node2._Position[2];
 
-                if (MaxPoint[0] < node2._Position[0])
-                    MaxPoint[0] = node2._Position[0];
-                if (MaxPoint[1] < node2._Position[1])
-                    MaxPoint[1] = node2._Position[1];
-                if (MaxPoint[2] < node2._Position[2])
-                    MaxPoint[2] = node2._Position[2];
+                if (maxPoint[0] < node2._Position[0])
+                    maxPoint[0] = node2._Position[0];
+                if (maxPoint[1] < node2._Position[1])
+                    maxPoint[1] = node2._Position[1];
+                if (maxPoint[2] < node2._Position[2])
+                    maxPoint[2] = node2._Position[2];
             }
         }
 
@@ -625,11 +528,17 @@ namespace AStar
         private Dictionary<object, object> _tags = new Dictionary<object, object>(); 
 #endif
 
+        /// <summary>
+        /// Волновой вес вершины
+        /// </summary>
         [XmlIgnore]
         public WaveSource.WaveWeight WaveWeight => _waveWeight;
         [NonSerialized]
         private WaveSource.WaveWeight _waveWeight = null;
 
+        /// <summary>
+        /// Привязка вершины к источнику волны <paramref name="source"/>
+        /// </summary>
         public WaveSource.WaveWeight AttachTo(WaveSource source)
         {
             if (_waveWeight is null || _waveWeight.Source != source)

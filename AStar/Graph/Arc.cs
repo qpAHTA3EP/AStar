@@ -5,10 +5,7 @@ using System.Xml.Serialization;
 namespace AStar
 {
 	[Serializable]
-	public class Arc
-#if IEquatable
-        : IEquatable<Arc> 
-#endif
+	public class Arc : IEquatable<Arc> 
     {
         internal Arc()
         {
@@ -124,17 +121,16 @@ namespace AStar
 
 		public bool Passable
         {
-#if true
-            get => _StartNode!= null && _StartNode.Passable && _EndNode!= null && _EndNode.Passable;
+            get => !_Disabled && _StartNode != null && _StartNode.Passable && _EndNode!= null && _EndNode.Passable;
         }
-#else
-            get => _Passable;
-            set => _Passable = value;
+        public bool Disabled
+        {
+            get => _Disabled;
+            set => _Disabled = value;
         }
-        private bool _Passable; 
-#endif
+        private bool _Disabled = false; 
 
-#if true
+#if false
         /// <summary>
         /// Флаг, при установки которого ребро помечается некорректным и подлежит удалению
         /// </summary>
@@ -187,14 +183,12 @@ namespace AStar
             return false;
         }
 
-#if IEquatable
         public bool Equals(Arc arc)
         {
             if (ReferenceEquals(this, arc))
                 return true;
             return _StartNode != null && _StartNode.Equals(arc._StartNode) && _EndNode!= null && _EndNode.Equals(arc._EndNode);
         } 
-#endif
 
         public override int GetHashCode()
 		{

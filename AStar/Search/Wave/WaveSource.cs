@@ -59,8 +59,6 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Зафиксировать (присоединить) источник волны к целевой вершине <paramref name="n"/> в графе <paramref name="g"/>
         /// </summary>
-        /// <param name="g"></param>
-        /// <param name="n"></param>
         public void AttachTo(Graph g, Node n)
         {
             if (g is null)
@@ -187,8 +185,6 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Сопоставление волнового веса <paramref name="ww"/> с текущей волной
         /// </summary>
-        /// <param name="ww"></param>
-        /// <returns></returns>
         internal bool Validate(WaveWeight ww)
         {
             var source = WaveSources[currentSlotIndex];
@@ -199,8 +195,6 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Формирование волны из <see cref="Target"/> к <paramref name="startNode"/>
         /// </summary>
-        /// <param name="startNode"></param>
-        /// <returns></returns>
         public bool GenerateWave(Node startNode)
         {
             if (Target is null)
@@ -312,7 +306,8 @@ namespace AStar.Search.Wave
                 // Просмотр входящих ребер
                 foreach (Arc inArc in node.IncomingArcs)
                 {
-                    if (inArc.Passable && inArc.StartNode.Passable)
+                    //if (inArc.Passable && inArc.StartNode.Passable) <- inArc.Passable включает в себя проверку inArc.StartNode.Passable
+                    if (inArc.Passable)
                     {
 #if DETAIL_LOG && WAVESOURCE_DEBUG_LOG
                         AStarLogger.WriteLine(LogType.Debug, string.Concat(nameof(WaveSource), '.', nameof(ProcessingFirst), ": \tАнализируем ребро ", inArc));

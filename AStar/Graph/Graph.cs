@@ -8,22 +8,47 @@ using AStar.Tools;
 
 namespace AStar
 {
-
-
     [Serializable]
-    public class Graph
+    public class Graph : IGraph
     {
-        // TODO: Попробовать синхронизацию доступа через RWLocker
-        // см https://habr.com/ru/post/459514/#ReaderWriterLockSlim
+        public Graph() { }
+
+        #region Synchronization
+        /// <summary>
+        /// Объект монопольной синхронизации
+        /// </summary>
         [XmlIgnore]
-        public object SyncRoot => this;//LN.SyncRoot
-#if false
+        public object SyncRoot => this;
+
+        // Cинхронизация многопоточного доступа через RWLocker
+        // см https://habr.com/ru/post/459514/#ReaderWriterLockSlim
+        /// <summary>
+        /// Объект синхронизации доступа к объекту <see cref="MapperGraphCache"/>
+        /// </summary>
+        [XmlIgnore]
         [NonSerialized]
-        object _locker = new object();
-#elif false
-        [NonSerialized]
-        public readonly RWLocker locker = new RWLocker();
-#endif
+        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim();
+
+        /// <summary>
+        /// Объект синхронизации для "чтения", допускающий одновременное чтение
+        /// </summary>
+        /// <returns></returns>
+        public RWLocker.ReadLockToken ReadLock() => new RWLocker.ReadLockToken(LazyInitializer.EnsureInitialized(ref @lock));
+        /// <summary>
+        /// Объект синхронизации для "чтения", допускающий ужесточение блокировки до 
+        /// </summary>
+        /// <returns></returns>
+        public RWLocker.UpgradableReadToken UpgradableReadLock() => new RWLocker.UpgradableReadToken(LazyInitializer.EnsureInitialized(ref @lock));
+        /// <summary>
+        /// Объект синхронизации для "записи".
+        /// </summary>
+        /// <returns></returns>
+        public RWLocker.WriteLockToken WriteLock() => new RWLocker.WriteLockToken(LazyInitializer.EnsureInitialized(ref @lock));
+
+        public bool IsReadLockHeld => LazyInitializer.EnsureInitialized(ref @lock).IsReadLockHeld;
+        public bool IsUpgradeableReadLockHeld => LazyInitializer.EnsureInitialized(ref @lock).IsUpgradeableReadLockHeld;
+        public bool IsWriteLockHeld => LazyInitializer.EnsureInitialized(ref @lock).IsWriteLockHeld;
+        #endregion
 
 #if false
         /// <summary>
@@ -53,32 +78,41 @@ namespace AStar
         public event NotifyGraphChanged BeforeGraphChanged;
 #endif
 
-        public Graph() { }
-
-        public IList Nodes => LN;
-        private readonly ArrayList LN = new ArrayList();
-
-#if UseListOfArcs
-        public IList Arcs => LA;
-        private readonly ArrayList LA = new ArrayList(); 
-#elif true
-        //Заглушка для Astral'a
+        #region Данные
         [XmlIgnore]
-        public IList Arcs => new EnumerableAsReadOnlyListWrapper<IEnumerable<Arc>>(EnumerateArcs);
-#endif
-        public IEnumerable<Arc> EnumerateArcs
+        public IEnumerable<Node> NodesCollection
         {
             get
             {
-                foreach(Node node in LN)
+                foreach (Node node in LN)
+                    yield return node;
+            }
+        }
+        public IList Nodes => LN;
+        private readonly ArrayList LN = new ArrayList();
+
+        public int NodesCount => LN.Count;
+
+        //Заглушка для Astral'a
+        [XmlIgnore]
+        public IList Arcs => new EnumerableAsReadOnlyListWrapper<IEnumerable<Arc>>(ArcsCollection);
+        [XmlIgnore]
+        public IEnumerable<Arc> ArcsCollection
+        {
+            get
+            {
+                foreach (Node node in LN)
                 {
                     foreach (Arc arc in node.OutgoingArcs)
                         yield return arc;
                 }
             }
-        }
+        } 
+        #endregion
 
-
+        /// <summary>
+        /// Очистка графа (удаление всех вершин)
+        /// </summary>
         public void Clear()
 		{
             lock (SyncRoot)
@@ -90,13 +124,34 @@ namespace AStar
 #if BeforeGraphChanged
                 BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingArcs); 
 #endif
-#if UseListOfArcs
-                LA.Clear();  
-#endif
             }
         }
 
-		public bool AddNode(Node node)
+        /// <summary>
+        /// Перебор всех вершин и применение к ним дейстия <paramref name="action"/>
+        /// </summary>
+        public int ForEachNode(Action<Node> action, bool ignorePassableProperty = false)
+        {
+            int num = 0;
+            if (ignorePassableProperty)
+                foreach (Node node in LN)
+                {
+                    action(node);
+                    num++;
+                }
+            else foreach (Node node in LN)
+                if(node.Passable)
+                {
+                    action(node);
+                    num++;
+                }
+            return num;
+        }
+
+        /// <summary>
+        /// Добавление вершины <paramref name="node"/>
+        /// </summary>
+        public bool AddNode(Node node)
 		{
 			if (node is null || LN.Contains(node))
 				return false;
@@ -111,92 +166,58 @@ namespace AStar
 			return true;
 		}
 
-		public Node AddNode(float x, float y, float z)
-		{
-			Node node = new Node(x, y, z);
-            lock (SyncRoot)
-            {
-                return AddNode(node) ? node : null;
-            }
-		}
-
-#if UseListOfArcs
-        protected bool lockAddArc(Arc NewArc)
+        /// <summary>
+        /// Добавление вершины с координатами <paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>
+        /// </summary>
+        public Node AddNode(float x, float y, float z)
         {
-#if BeforeGraphChanged
-            BeforeGraphChanged?.Invoke(new ArrayList() { NewArc }, NotifyReason.AddingArc); 
-#endif
-            lock (Locker)
-            {
-                return LA.Add(NewArc) > 0;
-            }
-        } 
-
-        public bool AddArc(Arc NewArc)
-		{
-			if (NewArc is null || LA.Contains(NewArc))
-				return false;
-
-            if (!LN.Contains(NewArc.StartNode) || !LN.Contains(NewArc.EndNode))
-				throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
-
-            lockAddArc(NewArc);
-
-            return true;
-		}
-
-        public Arc AddArc(Node StartNode, Node EndNode, float Weight)
-        {
-            Arc arc = Arc.Get(StartNode, EndNode);
-            if(arc is null)
-            {
-                arc = new Arc(StartNode, EndNode, Weight);
-                return lockAddArc(arc) ? arc : null;
-            }
-
-            return arc;
+            return AddNode(x, y, z, 0);
         }
 
-        public void Add2Arcs(Node Node1, Node Node2, float Weight)
+        /// <summary>
+        /// Добавление вершины с координатами <paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>
+        /// Если в пределах <paramref name="deviation"/> от заданных координат существует вершина, то новая не добавляется
+        /// </summary>
+        public Node AddNode(float x, float y, float z, double deviation)
 		{
-            if (!LN.Contains(Node1) || !LN.Contains(Node2))
-                throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
-
-            //AddArc(Node1, Node2, Weight);
-            Arc arc = Arc.Get(Node1, Node2);
-            if (arc is null)
+            Node node = null;
+            if (deviation > 0)
             {
-                arc = new Arc(Node1, Node2, Weight);
-                lockAddArc(arc);
+                // Поиск ближайшей вершины к заданным координатам
+                node = ClosestNode(x, y, z, out double dist, false);
+                if (dist <= deviation)
+                    return node;
             }
 
-            //AddArc(Node2, Node1, Weight);
-            arc = Arc.Get(Node2, Node1);
-            if (arc is null)
-            {
-                arc = new Arc(Node2, Node1, Weight);
-                lockAddArc(arc);
-            }
-        }
-#else
+            if(node is null)
+                node = new Node(x, y, z);
+
+            return AddNode(node) ? node : null;
+		}
+
+        /// <summary>
+        /// Добавление односторонней связи между вершинами
+        /// </summary>
         public Arc AddArc(Node startNode, Node endNode, float weight)
         {
             return startNode.ConnectTo(endNode, weight);
         }
 
+        /// <summary>
+        /// Добавление двусторонней связи между вершинами
+        /// </summary>
         public void Add2Arcs(Node Node1, Node Node2, float Weight)
         {
             if (!LN.Contains(Node1) || !LN.Contains(Node2))
                 throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
 
-            //AddArc(Node1, Node2, Weight);
             Node1.ConnectTo(Node2, Weight);
-
-            //AddArc(Node2, Node1, Weight);
             Node2.ConnectTo(Node1, Weight);
         }
-#endif
 
+        /// <summary>
+        /// Удаление вершины <paramref name="node"/>
+        /// </summary>
         public bool RemoveNode(Node node)
 		{
 			if (node is null)
@@ -205,7 +226,7 @@ namespace AStar
             lock (SyncRoot)
             {
                 node.Isolate();
-                LN.Remove(node);
+                LN.Remove(node); 
             }
 			return true;
 		}
@@ -213,10 +234,9 @@ namespace AStar
         /// <summary>
         /// Удаление из графа непроходимых и некорректных вершин и ребер
         /// </summary>
-        /// <returns></returns>
-        public int Compression()
+        public int RemoveUnpassable()
         {
-            int deletedNodesNum = LN.Count;
+            int totalNodes = LN.Count;
             int lastFreeElement = 0;
 
             lock (SyncRoot)
@@ -228,95 +248,73 @@ namespace AStar
                     if (LN[i] is Node node)
                         if (node.Passable)
                         {
-#if Node_RemoveDublicateArcs
-                            // Работает некорректно
-                            node.RemoveDublicateArcs(); 
-#endif
+                            node.RemoveUnpassableArcs(); 
                             LN[lastFreeElement] = node;
                             lastFreeElement++;
                         }
-                        else node.Isolate();
+                        // Удаление связей всех прочих вершин с непроходимой вершиной
+                        // осуществяется при их обработке путем вызова node.RemoveUnpassableArcs(); 
+                        //else node.Isolate();
                 }
                 // удаление "лишних" элементов в конце списка LN
                 if (lastFreeElement < LN.Count)
                     LN.RemoveRange(lastFreeElement, LN.Count - lastFreeElement);
-                deletedNodesNum -= lastFreeElement;
             }
 
             // Число удаленных вершин
-            return deletedNodesNum;
+            return totalNodes - LN.Count;
         }
 
-		public bool RemoveArc(Arc ArcToRemove)
+        /// <summary>
+        /// Удаление ребра <paramref name="arcToRemove"/>
+        /// </summary>
+		public bool RemoveArc(Arc arcToRemove)
 		{
-			if (ArcToRemove is null)
+			if (arcToRemove is null)
 				return false;
 
 
-            lock (SyncRoot)
+            lock (SyncRoot) 
             {
 #if BeforeGraphChanged
                 BeforeGraphChanged?.Invoke(ArcToRemove, NotifyReason.RemovingArc);
 #endif
-                ArcToRemove.StartNode.Remove(ArcToRemove);
-                ArcToRemove.EndNode.Remove(ArcToRemove);
-#if UseListOfArcs
-                LA.Remove(ArcToRemove); 
-#endif
+                arcToRemove.StartNode.Remove(arcToRemove);
+                arcToRemove.EndNode.Remove(arcToRemove);
             }
 			return true;
 		}
 
-        public int RemoveArcs(ArrayList ArcsToRemome)
+        /// <summary>
+        /// Удаление ребер <paramref name="arcsToRemove"/>
+        /// </summary>
+        public int RemoveArcs(ArrayList arcsToRemome)
         {
             int deletedArcsNum = 0;
-            if(ArcsToRemome?.Count > 0)
+            if(arcsToRemome?.Count > 0)
             {
-
                 lock (SyncRoot)
                 {
-#if UseListOfArcs
-                    int lastFreeElement = 0;
-                    // уплотнение массива LA
-                    for (int i = 0; i < LA.Count; i++)
+                    foreach (Arc arc in arcsToRemome)
                     {
-                        if (LA[i] is Arc arc)
-                        {
-                            if (ArcsToRemome.Contains(arc))
-                            {
-                                arc.StartNode.RemoveArcs(ArcsToRemome);
-                                arc.EndNode.RemoveArcs(ArcsToRemome);
-                            }
-                            else
-                            {
-                                LA[lastFreeElement] = arc;
-                                lastFreeElement++;
-                            }
-                        }
+                        arc.StartNode.RemoveArcs(arcsToRemome);
+                        arc.EndNode.RemoveArcs(arcsToRemome);
                     }
-
-                    // удаление "ненужных" ячеек в конце массива
-                    deletedArcsNum = LA.Count - lastFreeElement;
-                    if (deletedArcsNum > 0)
-                        LA.RemoveRange(lastFreeElement, deletedArcsNum);  
-#else
-                    foreach (Arc arc in ArcsToRemome)
-                    {
-                        arc.StartNode.RemoveArcs(ArcsToRemome);
-                        arc.EndNode.RemoveArcs(ArcsToRemome);
-                    }
-#endif
                 }
             }
 
             return deletedArcsNum;
         }
 
-		public void BoundingBox(out double[] MinPoint, out double[] MaxPoint)
+        /// <summary>
+        /// Вычисление параллелипипеда, вмещающего все вершины графа
+        /// Парраллелипипед ограничен задается точками <paramref name="minPoint"/> и <paramref name="maxPoint"/>
+        /// </summary>
+		public void BoundingBox(out double[] minPoint, out double[] maxPoint)
 		{
 			try
 			{
-				Node.BoundingBox(Nodes, out MinPoint, out MaxPoint);
+				Node.BoundingBox(LN, out minPoint, out maxPoint);
 			}
 			catch (ArgumentException innerException)
 			{
@@ -324,49 +322,28 @@ namespace AStar
 			}
 		}
 
-		public Node ClosestNode(double PtX, double PtY, double PtZ, out double Distance, bool IgnorePassableProperty)
+        /// <summary>
+        /// Поиск вершины. ближайшей к точке с координатами <paramref name="x"/>, <paramref name="y"/>, <paramref name="z"/>
+        /// </summary>
+		public Node ClosestNode(double x, double y, double z, out double distance, bool ignorePassableProperty)
 		{
 			Node result = null;
-			double closestNodeDist = double.MaxValue;
-			Point3D p = new Point3D(PtX, PtY, PtZ);
+			double minDist = double.MaxValue;
+			Point3D p = new Point3D(x, y, z);
 			foreach (Node node in LN)
 			{
-				if (!IgnorePassableProperty || node.Passable)
+				if (!ignorePassableProperty || node.Passable)
 				{
 					double dist = Point3D.DistanceBetween(node.Position, p);
-					if (closestNodeDist > dist)
+					if (minDist > dist)
 					{
-						closestNodeDist = dist;
+						minDist = dist;
 						result = node;
 					}
 				}
 			}
-			Distance = closestNodeDist;
+			distance = minDist;
 			return result;
 		}
-
-#if UseListOfArcs
-        public Arc ClosestArc(double PtX, double PtY, double PtZ, out double Distance, bool IgnorePassableProperty)
-        {
-            Arc result = null;
-            double closestArcDist = double.MaxValue;
-            Point3D point = new Point3D(PtX, PtY, PtZ);
-            foreach (Arc arc in LA)
-            {
-                if (!IgnorePassableProperty || arc.Passable)
-                {
-                    Point3D pointProjection = Point3D.ProjectOnLine(point, arc.StartNode.Position, arc.EndNode.Position);
-                    double dist = Point3D.DistanceBetween(point, pointProjection);
-                    if (closestArcDist > dist)
-                    {
-                        closestArcDist = dist;
-                        result = arc;
-                    }
-                }
-            }
-            Distance = closestArcDist;
-            return result;
-        } 
-#endif
     }
 }

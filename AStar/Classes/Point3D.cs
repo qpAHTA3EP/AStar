@@ -4,10 +4,7 @@ using System.Text;
 namespace AStar
 {
 	[Serializable]
-	public class Point3D
-#if IEquatable
-        : IEquatable<Point3D>
-#endif
+	public class Point3D : IEquatable<Point3D>
     {
         public Point3D(double[] Coordinates)
 		{
@@ -97,6 +94,7 @@ namespace AStar
         {
             get => _Coordinates[0] == 0 && _Coordinates[1] == 0 && _Coordinates[2] == 0;
         }
+
         /// <summary>
         /// Евклидово расстояние между точками
         /// </summary>
@@ -162,7 +160,7 @@ namespace AStar
             return false;
 #endif
         }
-#if IEquatable
+
         public bool Equals(Point3D point3D)
         {
             if (point3D != null)
@@ -177,7 +175,6 @@ namespace AStar
 #endif
             return false;
         } 
-#endif
 
         public override int GetHashCode()
 		{
