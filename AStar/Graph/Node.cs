@@ -218,16 +218,21 @@ namespace AStar
         /// <summary>
         /// Поиска ребра, соединяющего с <paramref name="node"/>, а при его отсутствии - добавление нужного ребра
         /// </summary>
-        public Arc ConnectTo(Node node, double weight = 1)
+        public bool ConnectTo(Node node, double weight, out Arc arc)
         {
-            Arc arc = ArcGoingTo(node);
+            bool added;
+            arc = ArcGoingTo(node);
             if (arc is null)
             {
                 arc = new Arc() { StartNode = this, EndNode = node, Weight = weight };
-                _OutgoingArcs.Add(arc);
+                added = _OutgoingArcs.Add(arc) >= 0;
             }
-            else arc.Disabled = false;
-            return arc;
+            else
+            {
+                added = arc.Disabled;
+                arc.Disabled = false;
+            }
+            return added;
         }
 
         /// <summary>

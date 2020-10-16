@@ -12,25 +12,28 @@ namespace AStar
     /// </summary>
     public interface IGraph
     {
-        /// <summary>
-        /// Объект монопольной синхронизации (lock)
-        /// </summary>
+        #region Инструменты синхронизации многопоточного доступа
         object SyncRoot { get; }
 
         RWLocker.ReadLockToken ReadLock();
         RWLocker.UpgradableReadToken UpgradableReadLock();
-        RWLocker.WriteLockToken WriteLock(); 
+        RWLocker.WriteLockToken WriteLock();
 
         bool IsReadLockHeld { get; }
         bool IsUpgradeableReadLockHeld { get; }
         bool IsWriteLockHeld { get; }
+        #endregion
 
+        #region Элементы графа (вершины, ребра)
         IEnumerable<Node> NodesCollection { get; }
         int NodesCount { get; }
 
         int ForEachNode(Action<Node> action, bool ignorePassableProperty = false);
 
-        IEnumerable<Arc> ArcsCollection { get; }
+        IEnumerable<Arc> ArcsCollection { get; } 
+        #endregion
+
+        int Version { get; }
 
         void Clear();
         bool AddNode(Node node);
@@ -40,7 +43,9 @@ namespace AStar
         Arc AddArc(Node startNode, Node endNode, float weight);
         void Add2Arcs(Node Node1, Node Node2, float Weight);
         bool RemoveArc(Arc ArcToRemove);
-        int RemoveArcs(ArrayList ArcsToRemome);
+#if false
+        int RemoveArcs(ArrayList ArcsToRemome); 
+#endif
 
         Node ClosestNode(double x, double y, double z, out double distance, bool ignorePassableProperty);
     }

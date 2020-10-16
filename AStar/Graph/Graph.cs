@@ -107,7 +107,9 @@ namespace AStar
                         yield return arc;
                 }
             }
-        } 
+        }
+
+        public int Version { get; private set; }
         #endregion
 
         /// <summary>
@@ -115,7 +117,9 @@ namespace AStar
         /// </summary>
         public void Clear()
 		{
-            lock (SyncRoot)
+#if self_lock
+            lock (SyncRoot) 
+#endif
             {
 #if BeforeGraphChanged
                 BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingNodes);
@@ -125,6 +129,7 @@ namespace AStar
                 BeforeGraphChanged?.Invoke(LN, NotifyReason.RemovingArcs); 
 #endif
             }
+            Version++;
         }
 
         /// <summary>
@@ -156,14 +161,17 @@ namespace AStar
 			if (node is null || LN.Contains(node))
 				return false;
 
-            lock (SyncRoot)
+#if self_lock
+            lock (SyncRoot) 
+#endif
             {
 #if BeforeGraphChanged
                 BeforeGraphChanged?.Invoke(new ArrayList() { NewNode }, NotifyReason.AddingNode); 
 #endif
-                LN.Add(node); 
+                if(LN.Add(node) >= 0)
+                    Version++;
             }
-			return true;
+            return true;
 		}
 
         /// <summary>
@@ -192,7 +200,12 @@ namespace AStar
             if(node is null)
                 node = new Node(x, y, z);
 
-            return AddNode(node) ? node : null;
+            if (AddNode(node))
+            {
+                Version++;
+                return node;
+            }
+            return null;
 		}
 
         /// <summary>
@@ -200,19 +213,24 @@ namespace AStar
         /// </summary>
         public Arc AddArc(Node startNode, Node endNode, float weight)
         {
-            return startNode.ConnectTo(endNode, weight);
+            if(startNode.ConnectTo(endNode, weight, out Arc arc))
+                Version++;
+            return arc;
         }
 
         /// <summary>
         /// Добавление двусторонней связи между вершинами
         /// </summary>
-        public void Add2Arcs(Node Node1, Node Node2, float Weight)
+        public void Add2Arcs(Node node1, Node node2, float weight)
         {
-            if (!LN.Contains(Node1) || !LN.Contains(Node2))
+            if (!LN.Contains(node1) || !LN.Contains(node2))
                 throw new ArgumentException("Cannot add an arc if one of its extremity nodes does not belong to the graph.");
 
-            Node1.ConnectTo(Node2, Weight);
-            Node2.ConnectTo(Node1, Weight);
+            if(node1.ConnectTo(node2, weight, out Arc arc))
+                Version++;
+
+            if(node2.ConnectTo(node1, weight, out arc))
+                Version++;
         }
 
         /// <summary>
@@ -223,12 +241,15 @@ namespace AStar
 			if (node is null)
 				return false;
 
-            lock (SyncRoot)
+#if self_lock
+            lock (SyncRoot) 
+#endif
             {
                 node.Isolate();
-                LN.Remove(node); 
+                LN.Remove(node);
+                Version++;
             }
-			return true;
+            return true;
 		}
 
         /// <summary>
@@ -239,9 +260,11 @@ namespace AStar
             int totalNodes = LN.Count;
             int lastFreeElement = 0;
 
-            lock (SyncRoot)
+#if self_lock
+            lock (SyncRoot) 
+#endif
             {
-                List<Arc> arcsToRemove = new List<Arc>();
+                //List<Arc> arcsToRemove = new List<Arc>();
                 // Уплотнение списка вершин
                 for (int i = 0; i < LN.Count; i++)
                 {
@@ -258,7 +281,10 @@ namespace AStar
                 }
                 // удаление "лишних" элементов в конце списка LN
                 if (lastFreeElement < LN.Count)
+                {
                     LN.RemoveRange(lastFreeElement, LN.Count - lastFreeElement);
+                    Version++;
+                }
             }
 
             // Число удаленных вершин
@@ -274,26 +300,32 @@ namespace AStar
 				return false;
 
 
-            lock (SyncRoot) 
+#if self_lock
+            lock (SyncRoot)  
+#endif
             {
 #if BeforeGraphChanged
                 BeforeGraphChanged?.Invoke(ArcToRemove, NotifyReason.RemovingArc);
 #endif
                 arcToRemove.StartNode.Remove(arcToRemove);
                 arcToRemove.EndNode.Remove(arcToRemove);
+                Version++;
             }
-			return true;
+            return true;
 		}
 
+#if false
         /// <summary>
         /// Удаление ребер <paramref name="arcsToRemove"/>
         /// </summary>
         public int RemoveArcs(ArrayList arcsToRemome)
         {
             int deletedArcsNum = 0;
-            if(arcsToRemome?.Count > 0)
+            if (arcsToRemome?.Count > 0)
             {
-                lock (SyncRoot)
+#if self_lock
+                lock (SyncRoot) 
+#endif
                 {
                     foreach (Arc arc in arcsToRemome)
                     {
@@ -301,16 +333,18 @@ namespace AStar
                         arc.EndNode.RemoveArcs(arcsToRemome);
                     }
                 }
+                Version++;
             }
 
             return deletedArcsNum;
-        }
+        } 
+#endif
 
         /// <summary>
         /// Вычисление параллелипипеда, вмещающего все вершины графа
         /// Парраллелипипед ограничен задается точками <paramref name="minPoint"/> и <paramref name="maxPoint"/>
         /// </summary>
-		public void BoundingBox(out double[] minPoint, out double[] maxPoint)
+        public void BoundingBox(out double[] minPoint, out double[] maxPoint)
 		{
 			try
 			{
@@ -328,22 +362,61 @@ namespace AStar
 		public Node ClosestNode(double x, double y, double z, out double distance, bool ignorePassableProperty)
 		{
 			Node result = null;
-			double minDist = double.MaxValue;
-			Point3D p = new Point3D(x, y, z);
+            distance = double.MaxValue;
 			foreach (Node node in LN)
 			{
 				if (!ignorePassableProperty || node.Passable)
 				{
-					double dist = Point3D.DistanceBetween(node.Position, p);
-					if (minDist > dist)
+                    var nodePos = node.Position;
+                    double squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x, y, z);
+                    if (distance > squaredDist)
 					{
-						minDist = dist;
+                        distance = squaredDist;
 						result = node;
 					}
 				}
 			}
-			distance = minDist;
-			return result;
+            if (result != null)
+                distance = Math.Sqrt(distance);
+            return result;
 		}
+
+        /// <summary>
+        /// Поиск вершины <paramref name="node1"/>, ближайшей к точке с координатами <paramref name="x1"/>, <paramref name="y1"/>, <paramref name="z1"/>
+        /// и вершины <paramref name="node2"/>, ближайшей к точке с координатами <paramref name="x2"/>, <paramref name="y2"/>, <paramref name="z2"/>
+        /// </summary>
+        public void ClosestNodes(double x1, double y1, double z1, out double distance1, out Node node1,
+                                 double x2, double y2, double z2, out double distance2, out Node node2,
+                                 bool ignorePassableProperty = true)
+        {
+            node1 = null;
+            node2 = null;
+            distance1 = double.MaxValue;
+            distance2 = double.MaxValue;
+            foreach (Node node in LN)
+            {
+                if (!ignorePassableProperty || node.Passable)
+                {
+                    var nodePos = node.Position;
+                    double squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x1, y1, z1);
+                    if (distance1 > squaredDist)
+                    {
+                        distance1 = squaredDist;
+                        node1 = node;
+                    }
+
+                    squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x2, y2, z2);
+                    if (distance2 > squaredDist)
+                    {
+                        distance2 = squaredDist;
+                        node2 = node;
+                    }
+                }
+            };
+            if (node1 != null)
+                distance1 = Math.Sqrt(distance1);
+            if (node2 != null)
+                distance2 = Math.Sqrt(distance2);
+        }
     }
 }

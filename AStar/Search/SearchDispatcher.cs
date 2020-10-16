@@ -7,6 +7,7 @@ using System.Threading;
 using AStar.Search;
 using AStar.Search.AStar;
 using AStar.Search.Wave;
+using MyNW.Classes;
 
 namespace AStar
 {
@@ -225,6 +226,21 @@ namespace AStar
                 return null;
             }
         }
+
+#if false
+        public List<Vector3> PathNodesList
+        {
+            get
+            {
+                if (searcher != null
+                    && searcher.PathFound)
+                {
+                    return searcher.PathNodesList;
+                }
+                return null;
+            }
+        } 
+#endif
 
         /// <summary>
         /// Флаг, указывающие на успешное построение пути

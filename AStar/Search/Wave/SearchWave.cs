@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyNW.Classes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -41,6 +42,21 @@ namespace AStar.Search.Wave
         }
 
         /// <summary>
+        /// Поиск пути из точки с координатами <paramref name="x1"/>, <paramref name="y1"/>, <paramref name="z1"/> в точку с координатами <paramref name="x2"/>, <paramref name="y2"/>, <paramref name="z2"/>
+        /// </summary>
+        public bool SearchPath(double x1, double y1, double z1,
+                               double x2, double y2, double z2)
+        {
+            if(graph != null)
+            {
+                graph.ClosestNodes(x1, y1, z1, out double dist1, out Node startNode,
+                    x2, y2, z2, out double dist2, out Node endtNode);
+                return SearchPath(startNode, endtNode);
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Поиск пути от узла StartNode к узлу EndNode
         /// </summary>
         /// <param name="StartNode"></param>
@@ -62,7 +78,11 @@ namespace AStar.Search.Wave
             if (waveSource is null)
                 waveSource = new WaveSource();
 
-            lock (graph.SyncRoot)
+#if false
+            lock (graph.SyncRoot) 
+#else
+            using (graph.ReadLock())
+#endif
             {
                 LinkedList<Node> track = null;
 
@@ -174,7 +194,7 @@ namespace AStar.Search.Wave
                                 AStarLogger.WriteLine(LogType.Error, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Не удалось построить путь. Очищаем кэш волны #{waveSource.CurrentSlotIndex}");
 #endif
 #if true
-                                waveSource.ClearWave(); 
+                                waveSource.ClearWave();
 #endif
                             }
                         }
@@ -236,6 +256,21 @@ namespace AStar.Search.Wave
             }
         }
         private Node[] foundedPath = null;
+
+
+#if false
+        /// <summary>
+        /// Список узлов, определяющих найденный уть
+        /// </summary>
+        public override IEnumerable<Vector3> PathNodes
+        {
+            get
+            {
+                return null;
+            }
+        } 
+#endif
+
 
         /// <summary>
         /// Длина найденного пути

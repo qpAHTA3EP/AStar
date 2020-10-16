@@ -103,12 +103,33 @@ namespace AStar
         /// <returns></returns>
         public static double DistanceBetween(Point3D P1, Point3D P2)
 		{
-			return Math.Sqrt((P1._Coordinates[0] - P2._Coordinates[0]) * (P1._Coordinates[0] - P2._Coordinates[0]) 
-                + (P1._Coordinates[1] - P2._Coordinates[1]) * (P1._Coordinates[1] - P2._Coordinates[1])
-                + (P1._Coordinates[2] - P2._Coordinates[2]) * (P1._Coordinates[2] - P2._Coordinates[2]));
+            double dx = P1._Coordinates[0] - P2._Coordinates[0],
+                   dy = P1._Coordinates[1] - P2._Coordinates[1],
+                   dz = P1._Coordinates[2] - P2._Coordinates[2];
+
+			return Math.Sqrt(dx * dx + dy * dy + dz * dz);
 		}
 
-		public static Point3D ProjectOnLine(Point3D Pt, Point3D P1, Point3D P2)
+        public static double DistanceBetween(double x1, double y1, double z1,
+                                             double x2, double y2, double z2)
+        {
+            double dx = x1 - x2,
+                   dy = y1 - y2,
+                   dz = z1 - z2;
+
+            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        }
+        public static double SquaredDistanceBetween(double x1, double y1, double z1,
+                                             double x2, double y2, double z2)
+        {
+            double dx = x1 - x2,
+                   dy = y1 - y2,
+                   dz = z1 - z2;
+
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        public static Point3D ProjectOnLine(Point3D Pt, Point3D P1, Point3D P2)
 		{
 			if (Pt is null || P1 is null || P2 is null)
 				throw new ArgumentNullException("None of the arguments can be null.");

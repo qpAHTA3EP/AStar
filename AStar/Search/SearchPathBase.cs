@@ -1,4 +1,7 @@
-﻿namespace AStar.Search
+﻿using MyNW.Classes;
+using System.Collections.Generic;
+
+namespace AStar.Search
 {
     public abstract class SearchPathBase
     {
@@ -12,9 +15,16 @@
         public abstract bool SearchPath(Node StartNode, Node EndNode);
 
         /// <summary>
-        /// Список узлов, определяющих найденный уть
+        /// Массив узлов, определяющих найденный уть
         /// </summary>
         public abstract Node[] PathByNodes { get; }
+
+#if false
+        /// <summary>
+        /// Список узлов, определяющих найденный уть
+        /// </summary>
+        public abstract IEnumerable<Vector3> PathNodes { get; }  
+#endif
 
         /// <summary>
         /// Длина пути 
