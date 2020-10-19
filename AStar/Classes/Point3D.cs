@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MyNW.Classes;
+using System;
 using System.Text;
 
 namespace AStar
@@ -119,6 +120,14 @@ namespace AStar
 
             return Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
+        public static double SquaredDistanceBetween(Point3D P1, Point3D P2)
+        {
+            double dx = P1.X - P2.X,
+                   dy = P1.Y - P2.Y,
+                   dz = P1.Z - P2.Z;
+
+            return dx * dx + dy * dy + dz * dz;
+        }
         public static double SquaredDistanceBetween(double x1, double y1, double z1,
                                              double x2, double y2, double z2)
         {
@@ -222,5 +231,10 @@ namespace AStar
         }
 
 		private double[] _Coordinates = new double[3];
-	}
+
+        public static implicit operator Vector3(Point3D point)
+        {
+            return new Vector3((float)point._Coordinates[0], (float)point._Coordinates[1], (float)point._Coordinates[2]);
+        }
+    }
 }

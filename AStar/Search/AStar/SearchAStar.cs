@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using AStar.Search.Wave;
 
 namespace AStar.Search.AStar
@@ -192,6 +193,34 @@ namespace AStar.Search.AStar
 			}
 		}
 
+        public override IEnumerable<Node> PathNodes
+        {
+            get
+            {
+#if true
+                return PathByNodes;
+#else
+                var trackTail = _LeafToGoBackUp;
+                while (trackHead != null)
+                {
+                    yield return trackTail.EndNode;
+                    trackTail = trackTail.Queue;
+                }
+#endif
+
+            }
+        }
+
+        public override int PathNodeCount
+        {
+            get
+            {
+                if (PathFound)
+                    return _LeafToGoBackUp.NbArcsVisited + 1;
+                else return 0;
+            }
+        }
+
         public override double PathLength
         {
             get
@@ -230,6 +259,20 @@ namespace AStar.Search.AStar
 
             SameNodesReached = Track.SameEndNode;
         }
+
+        /// <summary>
+        /// Сброс результатов последнего поиска
+        /// </summary>
+        public override void Reset()
+        {
+            _Open.Clear();
+            _Closed.Clear();
+            _LeafToGoBackUp = null;
+            _NbIterations = -1;
+
+            SameNodesReached = Track.SameEndNode;
+        }
+
 
         public Arc[] PathByArcs
 		{
@@ -277,7 +320,7 @@ namespace AStar.Search.AStar
 			}
 		}
 
-		private Graph _Graph;
+        private Graph _Graph;
 		private SortableList _Open;
 		private SortableList _Closed;
 		private Track _LeafToGoBackUp;

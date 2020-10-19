@@ -15,21 +15,29 @@ namespace AStar.Search
         public abstract bool SearchPath(Node StartNode, Node EndNode);
 
         /// <summary>
+        /// Сброс результатов последнего поиска
+        /// </summary>
+        public abstract void Reset();
+
+        /// <summary>
         /// Массив узлов, определяющих найденный уть
         /// </summary>
         public abstract Node[] PathByNodes { get; }
 
-#if false
         /// <summary>
         /// Список узлов, определяющих найденный уть
         /// </summary>
-        public abstract IEnumerable<Vector3> PathNodes { get; }  
-#endif
+        public abstract IEnumerable<Node> PathNodes { get; }  
 
         /// <summary>
         /// Длина пути 
         /// </summary>
         public abstract double PathLength { get; }
+
+        /// <summary>
+        /// Количество узлов в найденном пути
+        /// </summary>
+        public abstract int PathNodeCount { get; }
 
         /// <summary>
         /// Флаг, указывающие на успешное построение пути

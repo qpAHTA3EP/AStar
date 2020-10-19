@@ -34,26 +34,17 @@ namespace AStar.Search.Wave
             }
         }
 
-        public void ResetFlags()
+        public override void Reset()
         {
-            foundedPath = null;
-            foundedPathLength = -1;
-            pathFound = false;
+            ResetFlags();
+            _track?.Clear();
         }
 
-        /// <summary>
-        /// Поиск пути из точки с координатами <paramref name="x1"/>, <paramref name="y1"/>, <paramref name="z1"/> в точку с координатами <paramref name="x2"/>, <paramref name="y2"/>, <paramref name="z2"/>
-        /// </summary>
-        public bool SearchPath(double x1, double y1, double z1,
-                               double x2, double y2, double z2)
+        public void ResetFlags()
         {
-            if(graph != null)
-            {
-                graph.ClosestNodes(x1, y1, z1, out double dist1, out Node startNode,
-                    x2, y2, z2, out double dist2, out Node endtNode);
-                return SearchPath(startNode, endtNode);
-            }
-            return false;
+            _foundedPath = null;
+            _foundedPathLength = -1;
+            _pathFound = false;
         }
 
         /// <summary>
@@ -68,7 +59,8 @@ namespace AStar.Search.Wave
 
             if (StartNode is null || EndNode is null
                 || !StartNode.Passable || !EndNode.Passable
-                || StartNode.Position.IsOrigin || EndNode.Position.IsOrigin)
+                || StartNode.Position.IsOrigin || EndNode.Position.IsOrigin
+                /*|| Point3D.SquaredDistanceBetween(StartNode.Position, EndNode.Position) < 25*/)
             {
 #if WAVESEARCH_DEBUG_LOG
                 AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Некорректные входные данные. Прерываем поиск");
@@ -84,8 +76,6 @@ namespace AStar.Search.Wave
             using (graph.ReadLock())
 #endif
             {
-                LinkedList<Node> track = null;
-
                 waveSource.AttachTo(graph, EndNode);
                 //waveSource.Target = EndNode;
 
@@ -107,17 +97,17 @@ namespace AStar.Search.Wave
                     try
                     {
 
-                        if (GoBackUpNodes(StartNode, EndNode, out track))
+                        if (GoBackUpNodes(StartNode, EndNode, out _track))
                         {
                             // путь найден
 #if WAVESEARCH_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: В кэше #{waveSource.CurrentSlotIndex} найден путь: Start{StartNode} ==> End{EndNode}");
 #endif
-                            pathFound = true;
-                            foundedPath = new Node[track.Count];
-                            foundedPathLength = -1;
+                            _pathFound = true;
+                            _foundedPath = new Node[_track.Count];
+                            _foundedPathLength = -1;
 
-                            track.CopyTo(foundedPath, 0);
+                            _track.CopyTo(_foundedPath, 0);
 
                             waveSource.IncreaseUsage();
                             return true;
@@ -176,16 +166,20 @@ namespace AStar.Search.Wave
 #if WAVESEARCH_DEBUG_LOG
                             AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Формируем путь из Start{StartNode} ==> End{EndNode}");
 #endif
-                            if (GoBackUpNodes(StartNode, EndNode, out track))
+                            if (GoBackUpNodes(StartNode, EndNode, out _track))
                             {
 #if WAVESEARCH_DEBUG_LOG
                                 AStarLogger.WriteLine(LogType.Log, $"{nameof(WaveSearch)}.{nameof(SearchPath)}: Путь сформирован");
 #endif
                                 // путь найден
-                                pathFound = true;
-                                foundedPath = new Node[track.Count];
-                                foundedPathLength = -1;
-                                track.CopyTo(foundedPath, 0);
+                                _pathFound = true;
+                                _foundedPathLength = -1;
+#if local_track
+                                _foundedPath = new Node[_track.Count];
+                                _track.CopyTo(_foundedPath, 0); 
+#else
+                                _foundedPath = null;
+#endif
                                 waveSource.IncreaseUsage();
                             }
                             else
@@ -240,7 +234,7 @@ namespace AStar.Search.Wave
                     waveSource.ClearWave();
                 }
             }
-            return pathFound;
+            return _pathFound;
         }
 
         /// <summary>
@@ -250,26 +244,31 @@ namespace AStar.Search.Wave
         {
             get
             {
-                if (pathFound)
-                    return foundedPath;
-                return null;
+                if (_pathFound)
+                    if (_foundedPath is null && _track?.Count > 0)
+                    {
+                        _foundedPath = new Node[_track.Count];
+                        _track.CopyTo(_foundedPath, 0);
+                        return _foundedPath;
+                    }
+                return new Node[0];
             }
         }
-        private Node[] foundedPath = null;
+        private Node[] _foundedPath = null;
 
 
-#if false
         /// <summary>
-        /// Список узлов, определяющих найденный уть
+        /// Перечисление узлов, определяющих найденный уть
         /// </summary>
-        public override IEnumerable<Vector3> PathNodes
+        public override IEnumerable<Node> PathNodes
         {
             get
             {
-                return null;
+                if (_track?.Count > 0)
+                    foreach (var node in _track)
+                        yield return node;
             }
-        } 
-#endif
+        }
 
 
         /// <summary>
@@ -279,15 +278,19 @@ namespace AStar.Search.Wave
         {
             get
             {
-                if (pathFound && foundedPath?.Length > 0)
-                    if (foundedPathLength < 0)
-                        return foundedPathLength = foundedPath[0].WaveWeight.Weight;
-                    else return foundedPathLength;
+                if (_pathFound && _foundedPath?.Length > 0)
+                    if (_foundedPathLength < 0)
+                        return _foundedPathLength = _foundedPath[0].WaveWeight.Weight;
+                    else return _foundedPathLength;
                 return 0;
             }
         }
-        double foundedPathLength = -1;
+        double _foundedPathLength = -1;
 
+        /// <summary>
+        /// Список узлов найденного пути
+        /// </summary>
+        private LinkedList<Node> _track;
 
 #if GoBackUpNodes_Recursion
         /// <summary>
@@ -384,9 +387,24 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Флаг, обозначающий, что путь найден
         /// </summary>
-        public override bool PathFound => pathFound;//waveSource?.IsTargetTo(foundedPath?.LastOrDefault()) == true;
-        private bool pathFound = false;
+        public override bool PathFound => _pathFound;//waveSource?.IsTargetTo(_foundedPath?.LastOrDefault()) == true;
+        private bool _pathFound = false;
+
+        /// <summary>
+        /// Количество вершин в найденном пути
+        /// </summary>
+        public override int PathNodeCount
+        {
+            get
+            {
+                if (_pathFound)
+                    return _track.Count;
+                else return 0;
+            }
+        }
 
         private WaveSource waveSource = null;
+
+        public int CurrentWaveSlotIndex => waveSource.CurrentSlotIndex;
     }
 }

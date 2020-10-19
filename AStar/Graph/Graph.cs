@@ -27,27 +27,28 @@ namespace AStar
         /// </summary>
         [XmlIgnore]
         [NonSerialized]
-        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim();
+        private ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
         /// <summary>
         /// Объект синхронизации для "чтения", допускающий одновременное чтение
         /// </summary>
         /// <returns></returns>
-        public RWLocker.ReadLockToken ReadLock() => new RWLocker.ReadLockToken(LazyInitializer.EnsureInitialized(ref @lock));
+        public RWLocker.ReadLockToken ReadLock() => new RWLocker.ReadLockToken(@lock ?? (@lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion))); //LazyInitializer.EnsureInitialized(ref @lock));
         /// <summary>
         /// Объект синхронизации для "чтения", допускающий ужесточение блокировки до 
         /// </summary>
         /// <returns></returns>
-        public RWLocker.UpgradableReadToken UpgradableReadLock() => new RWLocker.UpgradableReadToken(LazyInitializer.EnsureInitialized(ref @lock));
+        public RWLocker.UpgradableReadToken UpgradableReadLock() => new RWLocker.UpgradableReadToken(@lock ?? (@lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion))); //LazyInitializer.EnsureInitialized(ref @lock));
         /// <summary>
         /// Объект синхронизации для "записи".
         /// </summary>
         /// <returns></returns>
-        public RWLocker.WriteLockToken WriteLock() => new RWLocker.WriteLockToken(LazyInitializer.EnsureInitialized(ref @lock));
+        public RWLocker.WriteLockToken WriteLock() => new RWLocker.WriteLockToken(@lock ?? (@lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion))); //LazyInitializer.EnsureInitialized(ref @lock));
 
-        public bool IsReadLockHeld => LazyInitializer.EnsureInitialized(ref @lock).IsReadLockHeld;
-        public bool IsUpgradeableReadLockHeld => LazyInitializer.EnsureInitialized(ref @lock).IsUpgradeableReadLockHeld;
-        public bool IsWriteLockHeld => LazyInitializer.EnsureInitialized(ref @lock).IsWriteLockHeld;
+        public bool IsReadLockHeld =>
+            (@lock ?? (@lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion))).IsReadLockHeld;//LazyInitializer.EnsureInitialized(ref @lock)).IsReadLockHeld;
+        public bool IsUpgradeableReadLockHeld => (@lock ?? (@lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion))).IsUpgradeableReadLockHeld;//LazyInitializer.EnsureInitialized(ref @lock).IsUpgradeableReadLockHeld;
+        public bool IsWriteLockHeld => (@lock ?? (@lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion))).IsWriteLockHeld;//LazyInitializer.EnsureInitialized(ref @lock).IsWriteLockHeld;
         #endregion
 
 #if false
@@ -291,6 +292,36 @@ namespace AStar
             return totalNodes - LN.Count;
         }
 
+        public int Validate()
+        {
+            int errorNum = 0;
+            AStarLogger.WriteLine("Start graph verification");
+            foreach (Node node in LN)
+            {
+                foreach (Arc arc in node.OutgoingArcs)
+                {
+                    if (!LN.Contains(arc.EndNode))
+                    {
+                        errorNum++;
+                        AStarLogger.WriteLine($"Incorrect Arc {arc}");
+                        arc.Disabled = true;
+                    }
+                }
+
+                foreach (Arc arc in node.IncomingArcs)
+                {
+                    if (!LN.Contains(arc.StartNode))
+                    {
+                        errorNum++;
+                        AStarLogger.WriteLine($"Incorrect Arc {arc}");
+                        arc.Disabled = true;
+                    }
+                }
+            }
+            AStarLogger.WriteLine($"There is {errorNum} errors in the Graph");
+            return errorNum;
+        }
+
         /// <summary>
         /// Удаление ребра <paramref name="arcToRemove"/>
         /// </summary>
@@ -342,7 +373,7 @@ namespace AStar
 
         /// <summary>
         /// Вычисление параллелипипеда, вмещающего все вершины графа
-        /// Парраллелипипед ограничен задается точками <paramref name="minPoint"/> и <paramref name="maxPoint"/>
+        /// Параллелипипед задается точками <paramref name="minPoint"/> и <paramref name="maxPoint"/>
         /// </summary>
         public void BoundingBox(out double[] minPoint, out double[] maxPoint)
 		{
@@ -363,10 +394,9 @@ namespace AStar
 		{
 			Node result = null;
             distance = double.MaxValue;
-			foreach (Node node in LN)
-			{
-				if (!ignorePassableProperty || node.Passable)
-				{
+            if(ignorePassableProperty)
+                foreach (Node node in LN)
+			    {
                     var nodePos = node.Position;
                     double squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x, y, z);
                     if (distance > squaredDist)
@@ -374,8 +404,20 @@ namespace AStar
                         distance = squaredDist;
 						result = node;
 					}
-				}
-			}
+			    }
+            else foreach (Node node in LN)
+            {
+                if (node.Passable)
+                {
+                    var nodePos = node.Position;
+                    double squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x, y, z);
+                    if (distance > squaredDist)
+                    {
+                        distance = squaredDist;
+                        result = node;
+                    }
+                }
+            }
             if (result != null)
                 distance = Math.Sqrt(distance);
             return result;
@@ -387,15 +429,14 @@ namespace AStar
         /// </summary>
         public void ClosestNodes(double x1, double y1, double z1, out double distance1, out Node node1,
                                  double x2, double y2, double z2, out double distance2, out Node node2,
-                                 bool ignorePassableProperty = true)
+                                 bool ignorePassableProperty = false)
         {
             node1 = null;
             node2 = null;
             distance1 = double.MaxValue;
             distance2 = double.MaxValue;
-            foreach (Node node in LN)
-            {
-                if (!ignorePassableProperty || node.Passable)
+            if(ignorePassableProperty)
+                foreach (Node node in LN)
                 {
                     var nodePos = node.Position;
                     double squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x1, y1, z1);
@@ -412,7 +453,26 @@ namespace AStar
                         node2 = node;
                     }
                 }
-            };
+            else foreach (Node node in LN)
+            {
+                if (node.Passable)
+                {
+                    var nodePos = node.Position;
+                    double squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x1, y1, z1);
+                    if (distance1 > squaredDist)
+                    {
+                        distance1 = squaredDist;
+                        node1 = node;
+                    }
+
+                    squaredDist = Point3D.SquaredDistanceBetween(nodePos.X, nodePos.Y, nodePos.Z, x2, y2, z2);
+                    if (distance2 > squaredDist)
+                    {
+                        distance2 = squaredDist;
+                        node2 = node;
+                    }
+                }
+            }
             if (node1 != null)
                 distance1 = Math.Sqrt(distance1);
             if (node2 != null)

@@ -11,7 +11,7 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <AssemblyVersion>2.20.1016.1553</AssemblyVersion>
+    <AssemblyVersion>2.20.1019.1012</AssemblyVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -19,7 +19,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>References\x64\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;NO_DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG; NO_DETAIL_LOG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG; NO_DETAIL_LOG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>

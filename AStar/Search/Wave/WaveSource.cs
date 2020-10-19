@@ -12,7 +12,7 @@ namespace AStar.Search.Wave
         /// <summary>
         /// Максимальное количество "сохраняемых" волн
         /// </summary>
-        public static readonly int WavesLimit = 16;
+        public static readonly int WavesLimit = 32;
 
         public WaveSource()
         {
@@ -122,7 +122,7 @@ namespace AStar.Search.Wave
 #if !UsagePerTick       
                         int slotTicks = nowTicks - slot.InitTime;
                         double slotUsagePerTick = slotTicks > 0 ?
-                            slot.UsageNumber / slotTicks : slot.UsageNumber;
+                            (double)slot.UsageNumber / (double)slotTicks : (double)slot.UsageNumber;
                         if(worseUsagePerTick > slotUsagePerTick)
                         {
                             worseUsagePerTick = slotUsagePerTick;

@@ -93,7 +93,7 @@ namespace AStar.Tools
             }
         }
 
-        private readonly ReaderWriterLockSlim @lock = new ReaderWriterLockSlim();
+        private readonly ReaderWriterLockSlim @lock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
 #if AfterUnlock_Action
         public ReadLockToken ReadLock(Action afterUnlock = null) => new ReadLockToken(@lock, afterUnlock);
