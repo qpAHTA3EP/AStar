@@ -272,7 +272,7 @@ namespace AStar
                     if (LN[i] is Node node)
                         if (node.Passable)
                         {
-                            node.RemoveUnpassableArcs(); 
+                            node.RemoveUnpassableAndDublicateArcs(); 
                             LN[lastFreeElement] = node;
                             lastFreeElement++;
                         }
@@ -298,23 +298,41 @@ namespace AStar
             AStarLogger.WriteLine("Start graph verification");
             foreach (Node node in LN)
             {
-                foreach (Arc arc in node.OutgoingArcs)
+                foreach (Arc testArc in node.OutgoingArcs)
                 {
-                    if (!LN.Contains(arc.EndNode))
+                    Node testArcEndNode = testArc.EndNode;
+                    if (!LN.Contains(testArcEndNode))
                     {
+                        // testArc.EndNode отсутствует в общем списке вершин графа
                         errorNum++;
-                        AStarLogger.WriteLine($"Incorrect Arc {arc}");
-                        arc.Disabled = true;
+                        AStarLogger.WriteLine($"Arc {testArc} lead to unknown node {testArcEndNode}. Arc disabled.");
+                        testArc.Disabled = true;
+                    }
+                    if(!ReferenceEquals(testArc, testArcEndNode.ArcComingFrom(node)))
+                    {
+                        // Ребро arc отсутствует в списке IncomingArcs вершины arc.EndNode
+                        errorNum++;
+                        AStarLogger.WriteLine($"Arc {testArc} not present in IncomingArcs of node {testArcEndNode}. Arc disabled.");
+                        testArc.Disabled = true;
                     }
                 }
 
-                foreach (Arc arc in node.IncomingArcs)
+                foreach (Arc testArc in node.IncomingArcs)
                 {
-                    if (!LN.Contains(arc.StartNode))
+                    Node testArcStartNode = testArc.StartNode;
+                    if (!LN.Contains(testArcStartNode))
                     {
+                        // testArc.StartNode отсутствует в общем списке вершин графа
                         errorNum++;
-                        AStarLogger.WriteLine($"Incorrect Arc {arc}");
-                        arc.Disabled = true;
+                        AStarLogger.WriteLine($"Arc {testArc} income from uncnown node {testArcStartNode}. Arc disabled.");
+                        testArc.Disabled = true;
+                    }
+                    if (!ReferenceEquals(testArc, testArcStartNode.ArcGoingTo(node)))
+                    {
+                        // Ребро arc отсутствует в списке OutgoingArcs вершины arc.EndNode
+                        errorNum++;
+                        AStarLogger.WriteLine($"Arc {testArc} not present in OutgoingArcs of node {testArcStartNode}. Arc disabled.");
+                        testArc.Disabled = true;
                     }
                 }
             }

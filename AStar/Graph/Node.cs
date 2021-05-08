@@ -224,8 +224,9 @@ namespace AStar
             arc = ArcGoingTo(node);
             if (arc is null)
             {
-                arc = new Arc() { StartNode = this, EndNode = node, Weight = weight };
+                arc = new Arc(this, node, weight);
                 added = _OutgoingArcs.Add(arc) >= 0;
+                node._IncomingArcs.Add(arc);
             }
             else
             {
@@ -292,17 +293,38 @@ namespace AStar
         /// Удаление непроходимых ребер
         /// Метод является частью алгоритма сжатия графа
         /// </summary>
-        internal void RemoveUnpassableArcs()
+        internal void RemoveUnpassableAndDublicateArcs()
         {
+            //TODO: Реализовать удаление дубликатов
             int lastFreeElement = 0;
             // уплотнение массива
             for (int i = 0; i < _IncomingArcs.Count; i++)
             {
-                if (_IncomingArcs[i] is Arc arc
-                    && arc.Passable)
+                if (_IncomingArcs[i] is Arc testArc
+                    && testArc.Passable)
                 {
-                    _IncomingArcs[lastFreeElement] = arc;
-                    lastFreeElement++;
+                    Node testArcStartNode = testArc.StartNode;
+                    bool hasDuble = false;
+                    for (int j = 0; j < lastFreeElement; j++)
+                    {
+                        Arc goodArc = (Arc)_IncomingArcs[j];
+                        if (ReferenceEquals(testArc, goodArc))
+                        {
+                            hasDuble = true;
+                            break;
+                        }
+                        else if (testArcStartNode.Equals(goodArc.StartNode))
+                        {
+                            testArc.Disabled = false;
+                            hasDuble = true;
+                            break;
+                        }
+                    }
+                    if (!hasDuble)
+                    {
+                        _IncomingArcs[lastFreeElement] = testArc;
+                        lastFreeElement++;
+                    }
                 }
             }
             // удаление "ненужных" ячеек в конце массива
@@ -312,11 +334,31 @@ namespace AStar
             lastFreeElement = 0;
             for (int i = 0; i < _OutgoingArcs.Count; i++)
             {
-                if (_OutgoingArcs[i] is Arc arc
-                    && arc.Passable)
+                if (_OutgoingArcs[i] is Arc testArc
+                    && testArc.Passable)
                 {
-                    _OutgoingArcs[lastFreeElement] = arc;
-                    lastFreeElement++;
+                    Node testArcEndNode = testArc.EndNode;
+                    bool hasDuble = false;
+                    for (int j = 0; j < lastFreeElement; j++)
+                    {
+                        Arc goodArc = (Arc)_OutgoingArcs[j];
+                        if (ReferenceEquals(testArc, goodArc))
+                        {
+                            hasDuble = true;
+                            break;
+                        }
+                        else if (testArcEndNode.Equals(goodArc.EndNode))
+                        {
+                            testArc.Disabled = false;
+                            hasDuble = true;
+                            break;
+                        }
+                    }
+                    if (!hasDuble)
+                    {
+                        _OutgoingArcs[lastFreeElement] = testArc;
+                        lastFreeElement++;
+                    }
                 }
             }
             if (lastFreeElement < _OutgoingArcs.Count)

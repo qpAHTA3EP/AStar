@@ -11,15 +11,15 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <AssemblyVersion>2.20.1019.1012</AssemblyVersion>
+    <AssemblyVersion>2.20.1106.0606</AssemblyVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>References\x64\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG; NO_DETAIL_LOG</DefineConstants>
+    <OutputPath>..\References\x64\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;NO_DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG; NO_DETAIL_LOG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
@@ -31,8 +31,8 @@
     <PlatformTarget>x64</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>References\x64\</OutputPath>
-    <DefineConstants>TRACE;IEquatable</DefineConstants>
+    <OutputPath>..\References\x64\</OutputPath>
+    <DefineConstants>TRACE;NO_DEBUG_LOG; NO_WAVESEARCH_DEBUG_LOG; NO_WAVESOURCE_DEBUG_LOG; NO_DETAIL_LOG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>

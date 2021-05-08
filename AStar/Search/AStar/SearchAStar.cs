@@ -43,12 +43,10 @@ namespace AStar.Search.AStar
 		public override bool SearchPath(Node StartNode, Node EndNode)
 		{
 			bool pathFound;
-            lock (_Graph)
+            using (_Graph.ReadLock())
 			{
 				Initialize(StartNode, EndNode);
-				while (NextStep())
-				{
-				}
+				while (NextStep()) { }
 				pathFound = PathFound;
 			}
 

@@ -13,6 +13,7 @@ namespace AStar
             LengthUpdated = false;
         }
 
+#if false
         public Arc(Node start, Node end)
         {
             if (start is null)
@@ -33,23 +34,37 @@ namespace AStar
         }
 
         public Arc(Node start, Node end, double weight = 1)
-		{
-            if(start is null)
-                throw  new ArgumentNullException(nameof(start));
+        {
+            if (start is null)
+                throw new ArgumentNullException(nameof(start));
             if (end is null)
                 throw new ArgumentNullException(nameof(end));
 
             if (start.Equals(end))
                 throw new ArgumentException("StartNode and EndNode must be different");
-			_StartNode = start;
-			_EndNode = end;
+            _StartNode = start;
+            _EndNode = end;
 
             _StartNode.Add(this);
             _EndNode.Add(this);
 
             Weight = weight;
-			LengthUpdated = false;
-		}
+            LengthUpdated = false;
+        } 
+#else
+        public Arc(Node start, Node end, double weight = 1)
+        {
+            if (start is null)
+                throw new ArgumentNullException(nameof(start));
+            if (end is null)
+                throw new ArgumentNullException(nameof(end));
+
+            if (start.Equals(end))
+                throw new ArgumentException("StartNode and EndNode must be different");
+            _StartNode = start;
+            _EndNode = end;
+        }
+#endif
 
         /// <summary>
         /// Проверка наличия ребра, связывающего обе вершины

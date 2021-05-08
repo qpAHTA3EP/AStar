@@ -107,7 +107,8 @@ namespace AStar
                     sb.AppendLine($"QuesterProfile: {Astral.API.CurrentSettings.LastQuesterProfile}");
                     sw.Start();
 #endif
-                    if (searcher.SearchPath(startNode, endNode))
+                    bool searchResult = searcher.SearchPath(startNode, endNode);
+                    if (searchResult)
                     {
 #if DEBUG_LOG
                         sw.Stop();
@@ -123,11 +124,10 @@ namespace AStar
                         AStarLogger.WriteLine(LogType.Log, sb.ToString()); 
 #endif
 #endif
-                        return true;
                     }
-#if DEBUG_LOG
                     else
                     {
+#if DEBUG_LOG
                         sw.Stop();
                         AStarLogger.WriteLine(LogType.Debug, $"WaveSearch FAILED: Start{startNode} ==> End{endNode}", true);
                         AStarLogger.WriteLine(LogType.Debug, $"{nameof(WaveSearch)}: Elapsed time: {sw.ElapsedMilliseconds} ({sw.ElapsedTicks})");
@@ -139,12 +139,13 @@ namespace AStar
                             sb.AppendLine($"\t{n}\t|\t{n.WaveWeight}");
                         AStarLogger.WriteLine(LogType.Debug, sb.ToString()); 
 #endif
-                    }
 #elif DEBUG
-                    sw.Stop();
-                    sb.AppendLine($"WaveSearch FAILED");
-                    sb.AppendLine($"WaveSearch: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
+                        sw.Stop();
+                        sb.AppendLine($"WaveSearch FAILED");
+                        sb.AppendLine($"WaveSearch: Elapsed time: {sw.ElapsedMilliseconds:N3} ({sw.ElapsedTicks})");
 #endif
+                    }
+                    return searchResult;
                 }
                 catch (ThreadInterruptedException e)
                 {
